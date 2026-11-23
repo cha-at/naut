@@ -10,9 +10,14 @@
 }
 
 /* 窄屏空间不足，读秒整体不展示 */
-@media not all and (min-width: 768px) {
+@media (max-width: 767px), (max-height: 520px) {
   .timer {
     display: none;
+  }
+
+  .button {
+    width: 44px;
+    height: 44px;
   }
 }
 
@@ -169,5 +174,12 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+@media (max-width: 767px), (max-height: 520px) {
+  /* 放在文件末尾，覆盖基础 34px 尺寸。 */
+  .button {
+    width: 44px;
+    height: 44px;
   }
 }

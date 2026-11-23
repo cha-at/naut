@@ -27,6 +27,7 @@ import {
   useSettings,
   type ThemePreference,
 } from '../../services/settings.js'
+import { pickArchiveFile, saveBlobFile } from '../../platform/files.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
@@ -474,7 +475,16 @@ const ImportHistory = ({
   disabled: boolean
 }) => {
   const t = useTranslate()
-  const inputRef = useRef<HTMLInputElement>(null)
+
+  const selectFile = () => {
+    void pickArchiveFile()
+      .then((file) => {
+        if (file) {
+          historyImport.select(file)
+        }
+      })
+      .catch(() => showToast({ key: 'historyImportFailed', type: 'error' }))
+  }
 
   return (
     <SettingCell
@@ -482,31 +492,16 @@ const ImportHistory = ({
       description={t('historyImportDescription')}
       status={historyImport.status}
       action={
-        <>
-          <Button
-            variant="outlined"
-            size="m"
-            className={clsx(styles.cellButton, styles.uploadButton)}
-            disabled={disabled}
-            onClick={() => inputRef.current?.click()}
-          >
-            <IconUploadOutline14 />
-            {t('upload')}
-          </Button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".zip,application/zip,application/x-zip-compressed"
-            hidden
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              event.target.value = ''
-              if (file) {
-                historyImport.select(file)
-              }
-            }}
-          />
-        </>
+        <Button
+          variant="outlined"
+          size="m"
+          className={clsx(styles.cellButton, styles.uploadButton)}
+          disabled={disabled}
+          onClick={selectFile}
+        >
+          <IconUploadOutline14 />
+          {t('upload')}
+        </Button>
       }
     />
   )
@@ -524,12 +519,12 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
     setStatus(null)
     try {
       const { name, blob } = await exportHistory()
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = name
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      const result = await saveBlobFile(blob, name, 'archive')
+      if (result.status === 'saved') {
+        setStatus({ key: 'historyExportSaved' })
+      } else if (result.status === 'failed') {
+        setStatus(errorStatus('historyExportFailed', result.error ?? new Error('save failed')))
+      }
     } catch (error) {
       setStatus(errorStatus('historyExportFailed', error))
     } finally {

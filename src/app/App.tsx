@@ -19,6 +19,11 @@ import { SettingsDialog } from '../components/settings/SettingsDialog.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
 import { onUploadNotice } from '../services/attachments.js'
+import { installBackHandler } from '../platform/back.js'
+import { installExternalLinkInterceptor } from '../platform/external.js'
+import { requestPersistentStorage } from '../platform/storage.js'
+import { ImageViewer } from '../components/files/ImageViewer.js'
+import { closeImageViewer } from '../components/files/imageViewerState.js'
 import { Button } from '../components/base/Button.js'
 import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
@@ -59,11 +64,16 @@ export const App = () => {
   // 文件数、存储空间达到上限时，附件上只显示「上传失败」，原因用 toast 说明
   useEffect(() => onUploadNotice(showToast), [])
   useEffect(bindChatPersistence, [])
+  // Tauri 内统一把外链交给系统浏览器，并接管 Android 返回键
+  useEffect(installExternalLinkInterceptor, [])
+  useEffect(installBackHandler, [])
+  useEffect(requestPersistentStorage, [])
 
   // 搜索结果面板只属于当前会话
   useEffect(closeSearchPanel, [activeId])
-  // 切换会话时停止朗读
+  // 切换会话时停止朗读、关闭图片预览
   useEffect(stopReadAloud, [activeId])
+  useEffect(closeImageViewer, [activeId])
   // 移动端选中会话、切换布局后收起抽屉
   useEffect(closeMobileSider, [activeId, isMobile])
 
@@ -133,6 +143,7 @@ export const App = () => {
         <SearchPanel />
       </div>
       <SettingsDialog />
+      <ImageViewer />
       <Toast />
     </>
   )

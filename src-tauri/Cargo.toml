@@ -1,0 +1,33 @@
+[package]
+name = "naut"
+version = "0.2.0"
+description = "Naut: mobile-first DeepSeek chat client"
+authors = ["Naut contributors"]
+license = "MIT"
+repository = "https://github.com/cha-at/naut"
+edition = "2024"
+rust-version = "1.90"
+
+[lib]
+name = "naut_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.6", features = [] }
+
+[patch.crates-io]
+# Tauri 移动端插件的 build script 会把 tauri-api 复制到自己的 Android 工程；
+# 部分沙箱/只读 registry 环境不允许写 crates.io 源目录，因此使用仓库内的官方插件副本。
+tauri-plugin-fs = { path = "plugins/tauri-plugin-fs" }
+tauri-plugin-dialog = { path = "plugins/tauri-plugin-dialog" }
+tauri-plugin-opener = { path = "plugins/tauri-plugin-opener" }
+tauri-plugin-clipboard-manager = { path = "plugins/tauri-plugin-clipboard-manager" }
+
+[dependencies]
+tauri = { version = "2.12.7", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

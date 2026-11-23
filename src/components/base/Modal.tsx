@@ -6,8 +6,13 @@ import { IconCloseOutline16 } from './icons.js'
 import { IconButton } from './IconButton.js'
 import styles from './Modal.module.css'
 
-/** 当前打开的弹窗，后打开的在末尾；叠放时 Esc 只关闭最上层 */
-const openModals: object[] = []
+/** 当前打开的弹窗，后打开的在末尾；叠放时 Esc / 返回键只关闭最上层 */
+type ModalEntry = { close: () => void }
+const openModals: ModalEntry[] = []
+
+export const hasOpenModal = () => openModals.length > 0
+
+export const closeTopModal = () => openModals.at(-1)?.close()
 
 /** 遮罩 + 居中卡片，Esc / 点遮罩关闭 */
 export const Modal = ({
@@ -34,16 +39,19 @@ export const Modal = ({
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   useEffect(() => {
-    const token = {}
-    openModals.push(token)
+    const entry: ModalEntry = { close: () => onCloseRef.current() }
+    openModals.push(entry)
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && openModals.at(-1) === token) {
+      if (event.key === 'Escape' && openModals.at(-1) === entry) {
         onCloseRef.current()
       }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {
-      openModals.splice(openModals.indexOf(token), 1)
+      const index = openModals.indexOf(entry)
+      if (index >= 0) {
+        openModals.splice(index, 1)
+      }
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [])
@@ -51,7 +59,7 @@ export const Modal = ({
   return createPortal(
     <div
       className={styles.overlay}
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+      onPointerDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <div
         className={clsx(styles.content, className)}

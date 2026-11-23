@@ -9,3 +9,18 @@ build/
 .env.*
 !.env.example
 tmp/
+tmp-dirtest/
+
+# Editor / OS
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini
+*.tsbuildinfo
+
+# Tauri
+src-tauri/plugins/*/android/.tauri/
+src-tauri/plugins/*/target/
+*.jks
+*.keystore
+key.properties

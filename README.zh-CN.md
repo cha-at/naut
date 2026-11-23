@@ -1,75 +1,113 @@
-# chat-demo
+# Naut
 
 [English](README.md) | 简体中文
 
-基于 DeepSeek API 的静态聊天示例。无需应用后端，浏览器直接请求配置的 API 服务。
+Naut 是基于 **Tauri v2** 的 mobile-first DeepSeek API 聊天客户端，面向 Android 和 Windows。它 fork 自 [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo)，并保留原有静态 Web 构建。
 
-点击 [在线体验](https://deepseek-ai.github.io/chat-demo/) 即可使用，也可以前往 [Releases](https://github.com/deepseek-ai/deepseek-chat-demo/releases) 下载压缩包，解压后双击 `index.html` 在本地使用，无需安装或构建。首次使用时，请在设置中填写 API Key。
-
-## 运行
-
-准备 Node.js 22.12+ 和 pnpm：
-
-```sh
-git clone https://github.com/deepseek-ai/chat-demo.git
-cd chat-demo
-pnpm install
-pnpm dev
-```
-
-打开 http://localhost:8090 。
-
-生成静态产物：
-
-```sh
-pnpm build
-```
-
-产物位于 `dist/`，可部署到静态服务器，也可直接打开 `dist/index.html`。直接打开时，浏览器和 API 服务需允许 `file://` 页面的存储与跨域请求。
+应用没有自建后端，客户端直接请求配置的 API 服务。首次使用前，请在设置中填写 API Key。
 
 ## 功能
 
 - 多会话、自动标题、重命名与删除；编辑提问、重新生成和切换消息分支。
-- 流式回答、深度思考、智能搜索、链接阅读与来源引用；支持停止和符合条件的继续生成。
-- 附件上传、粘贴与拖拽，语音输入和回复朗读；移动端录音时输入框首行显示实时频谱。
-- Markdown、代码高亮、KaTeX 公式和 Mermaid 图表。
-- 简体中文与英文、浅色与深色主题、移动端布局、位置设置、历史导入导出。
+- 流式回答、深度思考、智能搜索、链接阅读与来源引用。
+- 附件上传、语音输入与回复朗读；Markdown、代码高亮、KaTeX 公式和 Mermaid 图表。
+- 简体中文与英文、浅色与深色主题、移动端布局、历史导入导出。
+- 移动端原生体验：安全区布局、软键盘适配、44px 触控区、Android 返回键、应用内图片预览、系统保存对话框。
 
-## 数据
+## 环境要求
 
-API Key 和设置保存在浏览器 localStorage，会话及附件原件保存在 IndexedDB，本地数据按浏览器用户配置和站点源（origin）隔离。发送对话、上传附件和使用语音功能时，相应内容会提交给配置的 API 服务。
+- Node.js 22.12+ 和 pnpm。
+- Rust 1.90+（当前开发环境为 1.96）。
+- Windows 桌面构建：MSVC C++ Build Tools 和 WebView2。
+- Android 构建：JDK 17、Android SDK Platform 37、Build-Tools、NDK **29.0.13846066**。
+- 本仓库不构建 iOS；iOS 需要 macOS 和 Xcode。
 
-设置中的历史导入导出使用 ZIP 格式。导入会在确认并校验成功后替换全部本地会话和附件；导出包含会话与本地可用的图片原件，不包含 API Key、设置或非图片附件原件。格式与保留范围见[历史导入导出](src/services/chat/history/README.md)。
+## 安装与运行
 
-设置 → 数据管理 → 删除所有对话，会在确认后清空全部本地会话、附件原件和未发送的草稿，停止正在生成的回复并回到新对话。API Key 和其他设置保留，已上传到 API 服务的文件不受影响。
+~~~sh
+pnpm install
+pnpm dev          # 浏览器预览 http://localhost:8090
+pnpm build        # 静态 Web 产物 dist/
+~~~
 
-## 开发
+桌面：
 
-| 命令          | 用途                |
-| ------------- | ------------------- |
-| `pnpm dev`    | 启动开发服务器      |
-| `pnpm build`  | 构建到 `dist/`      |
-| `pnpm type`   | TypeScript 类型检查 |
-| `pnpm lint`   | oxlint 检查         |
-| `pnpm format` | oxfmt 格式化        |
+~~~sh
+pnpm tauri dev
+pnpm tauri build
+~~~
 
-[rspack.config.ts](rspack.config.ts) 默认连接 `https://api.deepseek.com`。`createConfig({ apiOrigin, devServer })` 支持自定义 API 地址和开发服务器代理。
+Android：
 
-聊天默认使用 `deepseek-flash`，通过 Anthropic 兼容的 Messages / Files API 通信；语音使用 ASR / TTS 接口。请求使用搜索、链接阅读、标题和 `latest_reminder` 等扩展，接入服务需支持相应能力。附件实际支持的格式以服务端校验为准。
+~~~powershell
+$env:ANDROID_HOME = "$env:LOCALAPPDATA/Android/Sdk"
+$env:NDK_HOME = "$env:ANDROID_HOME/ndk/29.0.13846066"
 
-```text
+rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+pnpm tauri android build --debug --apk -t aarch64
+~~~
+
+Android 工程已提交在 **src-tauri/gen/android**。除非该目录缺失，否则不要再次执行 **pnpm tauri android init**：它会重新生成原生工程，可能覆盖清单和主题定制。
+
+debug APK 位于 **src-tauri/gen/android/app/build/outputs/apk/**。真机调试需要开启开发者选项和 USB 调试，连接后执行 **pnpm tauri android dev**（或用 adb 安装 APK）。Android WebView 调试入口是 Chrome 的 **chrome://inspect**。
+
+如果 SDK 把 Android 37 暴露为 **android-37.0**，构建前确保存在名为 **android-37** 的平台目录或 junction。
+
+Windows ARM64 上如果宿主 C++ 编译报 MSVC **D8050**，构建前设置 **$env:CC_PREFER_CLANG_CL_OVER_MSVC = "1"**。
+
+## 移动端行为
+
+- **安全区**：viewport 使用 **viewport-fit=cover**，布局消费 **env(safe-area-inset-*)**。Tauri Android 的 edge-to-edge 会让顶栏避开状态栏、输入框避开导航栏。建议使用 Chromium 140+ 的 Android System WebView，旧版本可能拿不到 inset。
+- **软键盘**：页面跟随 **visualViewport** 收缩；输入框聚焦时底部安全区归零，避免键盘上方多出空白。
+- **返回键**：Android 返回依次关闭图片预览、菜单/选择器、弹窗、搜索面板、侧栏；在根页面停止生成和朗读后退出。
+- **文件**：历史导入导出和附件保存使用系统对话框；导入的 ZIP 先复制进应用沙箱再校验。图片在应用内全屏预览。
+- **外部链接**：校验后交给系统浏览器；Rust 侧阻止 WebView 被外部链接带离应用。
+- **存储**：API Key 和设置保存在 app-private localStorage，会话和附件原件保存在 IndexedDB；Android 系统备份已关闭。Web 版和原生版 origin 不同，跨端迁移请使用历史导出/导入。
+
+## 目录
+
+~~~text
 src/
-  app/                 应用布局、主题与全局样式
-  components/          聊天、设置、Markdown 等界面组件
-  i18n/                中英文文案
+  app/                 布局、主题与全局样式
+  components/          聊天、设置、Markdown、文件与基础 UI
+  platform/            Tauri 运行时适配（外链、文件、返回键）
   services/
     api/               API 请求、SSE 与协议类型
-    chat/              会话、消息分支、本地存储与历史导入导出
-    markdown/          Markdown 解析、代码高亮与图表
+    chat/              会话、分支、存储与历史导入导出
+    markdown/          Markdown 解析、高亮与图表
     speech/            录音与朗读
   utils/               通用工具
-```
+src-tauri/             Tauri 壳、capabilities、图标与 Android 工程
+  plugins/             固定版本的官方 Tauri 插件（构建兼容说明见其 README）
+~~~
+
+API 地址默认是 **https://api.deepseek.com**，可通过 [rspack.config.ts](rspack.config.ts) 的 **createConfig({ apiOrigin })** 修改。聊天使用 Anthropic 兼容的 Messages / Files API，语音使用 ASR / TTS 接口。
+
+## 开发命令
+
+| 命令 | 用途 |
+| --- | --- |
+| **pnpm dev** | 浏览器开发服务器 |
+| **pnpm build** | 构建静态产物到 dist/ |
+| **pnpm type** | TypeScript 类型检查 |
+| **pnpm lint** | oxlint |
+| **pnpm format** | oxfmt |
+| **pnpm tauri dev** | 桌面开发模式（HMR） |
+| **pnpm tauri build** | Windows 安装包 |
+| **pnpm build:android** | Android debug APK |
+| **pnpm build:android:release** | Android release APK（需签名） |
+
+## 已知限制
+
+- 不包含 iOS 工程与 App Store 构建。
+- 未配置 release 签名、Play Store 上架和自动更新。
+- 安全区依赖较新的 Android WebView；旧版本可能把内容画到状态栏下面。
+- 系统栏图标跟随系统深浅色；应用主题与系统相反时对比度可能不足。
+- 大型 ZIP 导入会先把文件读入内存。
+- API Key 未加密，仅依赖 app-private 存储隔离。
+- Android debug APK 使用正式 applicationId；发布前请妥善保管签名密钥。
 
 ## 许可证
 
-[MIT](LICENSE)。构建会将许可证复制到 `dist/LICENSE`，分发时请一并保留；第三方依赖遵循各自的许可证。
+[MIT](LICENSE)。Naut fork 自 [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo)，原项目同样使用 MIT 许可证。分发时请一并保留许可证。

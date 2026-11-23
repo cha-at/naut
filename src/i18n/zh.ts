@@ -11,7 +11,7 @@ export const zh = {
   sessionSaveFailed: '对话或附件尚未保存到本机，关闭页面可能丢失，请重试',
   sessionDeleteFailed: '删除对话失败，请重试',
   settings: '设置',
-  appName: 'API 使用 demo',
+  appName: 'Naut',
   deleteSessionModalContentTitle: '永久删除对话',
   deleteSessionWithFilesDescription: '删除后，该对话及其中上传的文件将不可恢复。确认删除吗？',
   cancel: '取消',
@@ -115,6 +115,7 @@ export const zh = {
   historyImportFailed:
     '文件导入失败，可能是文件格式错误或使用了旧版的对话导出 ZIP 文件，请前往 DeepSeek 重新导出历史对话文件后再次导入。',
   historyExportFailed: '导出失败：{message}',
+  historyExportSaved: '已导出',
   exportAllLabel: '导出所有历史对话',
   historyExportDescription:
     '包含所有历史对话及本地图片原件；其他附件仅保留文件信息，不包含 API Key。',
@@ -129,6 +130,8 @@ export const zh = {
   uploadUnsupportedFormat:
     '上传的文件包含暂未支持的文件格式，请转换文件格式后重试。支持 PDF、DOC、XLSX、PPT、图片、文本、代码等。',
   uploadFileStatusFailed: '上传失败',
+  fileSaved: '已保存',
+  fileSaveFailed: '保存失败，请重试',
   uploadRetry: '{message}，点击重试',
   chatInputPlaceholderChat: '请输入消息',
   deactivatedThinkTooltip: '先思考后回答，解决推理问题',

@@ -18,3 +18,9 @@
   white-space: nowrap;
   user-select: none;
 }
+
+@media (max-width: 767px), (max-height: 520px) {
+  .switcher {
+    height: 44px;
+  }
+}

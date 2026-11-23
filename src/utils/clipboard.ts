@@ -1,4 +1,16 @@
+import { isTauri } from '../platform/env.js'
+
 export const copyText = async (text: string): Promise<boolean> => {
+  if (isTauri()) {
+    try {
+      const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
+      await writeText(text)
+      return true
+    } catch {
+      // 原生剪贴板不可用时继续走浏览器兼容路径。
+    }
+  }
+
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text)

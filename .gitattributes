@@ -1,0 +1,41 @@
+# 换行符策略
+# 文本文件在仓库内统一以 LF 存储、以 LF 检出（Windows 上也一样），
+# 避免跨平台（Windows 开发 + Android/iOS/CI）产生整文件级 diff。
+* text=auto eol=lf
+
+# Windows 批处理/脚本必须 CRLF，否则 cmd.exe、部分 PowerShell 宿主解析异常
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 二进制资源：不做换行转换，也不按文本做 diff / merge
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.bmp binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary
+*.jar binary
+*.apk binary
+*.aab binary
+*.so binary
+*.dylib binary
+*.dll binary
+*.exe binary
+*.class binary
+
+# 签名/密钥材料
+*.jks binary
+*.keystore binary
+
+# 锁文件是生成物，标记为 generated，GitHub 上默认折叠以减少 review 噪音
+pnpm-lock.yaml linguist-generated=true
+Cargo.lock linguist-generated=true

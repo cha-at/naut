@@ -54,7 +54,7 @@
   }
 }
 
-@media not all and (min-width: 768px) {
+@media (max-width: 767px), (max-height: 520px) {
   .panel {
     position: fixed;
     inset: 0;
@@ -62,5 +62,15 @@
     width: auto;
     max-width: none;
     border-left: none;
+  }
+
+  .header {
+    height: calc(60px + var(--app-safe-top, 0px));
+    padding: var(--app-safe-top, 0px) calc(14px + var(--app-safe-right, 0px)) 0
+      calc(20px + var(--app-safe-left, 0px));
+  }
+
+  .content {
+    padding-bottom: calc(8px + var(--app-safe-bottom, 0px));
   }
 }

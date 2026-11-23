@@ -16,34 +16,53 @@ const createViewUrl = (original: Blob, type: string) => {
   })
 }
 
+type ViewState = {
+  source: File | string
+  type: string
+  url: string | null
+  blob: Blob | null
+}
+
 /** 草稿传 File，已发送的附件传 IndexedDB 原件 ID。 */
 export const useFileView = (source: File | string, name: string) => {
   const type = getFileViewType(name)
-  const [state, setState] = useState<{ source: File | string; type: string; url: string | null }>()
+  const [state, setState] = useState<ViewState>()
   useEffect(() => {
     let active = true
     const original = typeof source === 'string' ? loadFile(source) : Promise.resolve(source)
     const pending = original
-      .then((blob) => (active && blob ? createViewUrl(blob, type) : null))
+      .then(async (blob) => {
+        if (!active || !blob) {
+          return null
+        }
+        return { blob, url: await createViewUrl(blob, type) }
+      })
       .catch(() => null)
-    void pending.then((url) => {
+    void pending.then((result) => {
       if (active) {
-        setState({ source, type, url })
+        setState({
+          source,
+          type,
+          url: result?.url ?? null,
+          blob: result?.blob ?? null,
+        })
       }
     })
     return () => {
       active = false
-      void pending.then((url) => {
-        if (url?.startsWith('blob:')) {
-          URL.revokeObjectURL(url)
+      void pending.then((result) => {
+        if (result?.url.startsWith('blob:')) {
+          URL.revokeObjectURL(result.url)
         }
       })
     }
   }, [source, type])
 
-  const url = state?.source === source && state.type === type ? state.url : undefined
-  const image = isImage(type)
-  const openInTab = type === 'application/pdf' || (image && type !== 'image/svg+xml')
-  const action = openInTab ? { target: '_blank', rel: 'noreferrer' } : { download: name }
-  return { url, image, link: url ? { href: url, ...action } : undefined }
+  const current = state?.source === source && state.type === type ? state : undefined
+  return {
+    url: current?.url,
+    blob: current?.blob ?? null,
+    image: isImage(type),
+    type,
+  }
 }

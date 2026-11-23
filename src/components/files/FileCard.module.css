@@ -13,14 +13,20 @@
   cursor: default;
   transition: background-color 0.2s ease-in-out;
 
-  > a {
-    position: absolute;
-    inset: 0;
-  }
-
   &:hover .remove {
     opacity: 1;
   }
+}
+
+.openArea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 16px;
+  background: none;
+  cursor: pointer;
 }
 
 .clickable {
@@ -125,4 +131,18 @@
   opacity: 1;
   color: var(--dsw-alias-label-primary-foreground);
   background-color: var(--dsw-alias-state-error-primary);
+}
+
+@media (hover: none) {
+  .remove {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 767px), (max-height: 520px) {
+  .remove {
+    width: 28px;
+    height: 28px;
+    opacity: 1;
+  }
 }

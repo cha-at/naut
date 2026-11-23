@@ -40,6 +40,15 @@
   cursor: default;
 }
 
+.previewButton {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
 .attachment {
   position: relative;
   flex-shrink: 0;
@@ -219,7 +228,13 @@
   max-height: 336px;
 }
 
-@media not all and (min-width: 768px) {
+@media (hover: none) {
+  .remove {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 767px), (max-height: 520px) {
   .wrapper {
     flex-shrink: 0;
     max-height: calc(var(--app-viewport-height, 100dvh) - 120px);
@@ -232,6 +247,34 @@
   .attachments,
   .functionRow {
     flex-shrink: 0;
+  }
+
+  .remove {
+    top: 3px;
+    right: 3px;
+    width: 28px;
+    height: 28px;
+    opacity: 1;
+  }
+
+  .functionRow {
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .toggle {
+    height: 44px;
+    padding: 0 12px;
+  }
+
+  .right {
+    gap: 2px;
+  }
+
+  .sendButton {
+    width: 44px;
+    height: 44px;
+    margin-left: 2px;
   }
 }
 
@@ -328,5 +371,27 @@
   &.disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+}
+@media (max-width: 767px), (max-height: 520px) {
+  /* 放在文件末尾，覆盖上面基础尺寸，保证触控目标约 44px。 */
+  .functionRow {
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .toggle {
+    height: 44px;
+    padding: 0 12px;
+  }
+
+  .right {
+    gap: 2px;
+  }
+
+  .sendButton {
+    width: 44px;
+    height: 44px;
+    margin-left: 2px;
   }
 }

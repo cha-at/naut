@@ -1,0 +1,6 @@
+{
+  "default": "naut-icon.svg",
+  "bg_color": "#050A14",
+  "android_bg": "naut-background.svg",
+  "android_fg": "naut-foreground.svg"
+}

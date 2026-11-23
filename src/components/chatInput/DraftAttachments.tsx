@@ -6,6 +6,7 @@ import type { DraftAttachment } from '../../services/chat/drafts.js'
 import { IconCloseFill14, IconRefreshOutline16 } from '../base/icons.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { FileCard } from '../files/FileCard.js'
+import { openImageViewer } from '../files/imageViewerState.js'
 import { useFileView } from '../files/useFileView.js'
 import styles from './ChatInput.module.css'
 
@@ -49,7 +50,7 @@ const AttachmentItem = ({
   onRemove: () => void
 }) => {
   const t = useTranslate()
-  const { image, url, link } = useFileView(item.file, item.file.name)
+  const { image, url } = useFileView(item.file, item.file.name)
   const task = useUploads((state) => state.tasks[item.id] ?? UPLOADING)
   const status = task.status
   const error = task.status === 'error' ? t(task.error.key, task.error.params) : undefined
@@ -65,7 +66,18 @@ const AttachmentItem = ({
       className={clsx(styles.attachment, failed && styles.attachmentFailed)}
       title={error ?? item.file.name}
     >
-      {link && status === 'done' ? <a {...link}>{preview}</a> : preview}
+      {status === 'done' && url ? (
+        <button
+          type="button"
+          className={styles.previewButton}
+          aria-label={item.file.name}
+          onClick={() => openImageViewer(url, item.file.name)}
+        >
+          {preview}
+        </button>
+      ) : (
+        preview
+      )}
       {status === 'uploading' ? <div className={styles.uploading} /> : null}
       {failed && retry ? (
         <Tooltip content={retryLabel}>
@@ -94,7 +106,6 @@ const AttachmentItem = ({
       name={item.file.name}
       size={item.file.size}
       status={status}
-      link={link}
       error={error}
       onRetry={retry}
       onRemove={onRemove}

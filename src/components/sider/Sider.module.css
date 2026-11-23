@@ -204,11 +204,14 @@
   position: absolute;
   inset: 0;
   z-index: 799;
+  background-color: rgba(0, 0, 0, 0.2);
 }
 
 .mobile {
   width: 300px;
   max-width: calc(100vw - 48px);
+  padding: calc(6px + var(--app-safe-top, 0px)) calc(12px + var(--app-safe-right, 0px))
+    var(--app-safe-bottom, 0px) calc(12px + var(--app-safe-left, 0px));
 
   .listWrap {
     margin-top: 16px;

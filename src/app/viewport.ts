@@ -1,7 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 
-/** 窄于 768px 按移动端布局 */
-const query = window.matchMedia('not all and (min-width: 768px)')
+/**
+ * 移动端布局：窄屏，或高度很小的横屏手机。
+ * 必须与各 CSS 文件里的移动端媒体查询保持一致。
+ */
+const query = window.matchMedia('(max-width: 767px), (max-height: 520px)')
 
 const subscribe = (onChange: () => void) => {
   query.addEventListener('change', onChange)
@@ -57,6 +60,7 @@ export const useMobileViewport = (enabled: boolean) => {
     const reset = () => {
       frame.style.removeProperty('--app-viewport-height')
       frame.style.removeProperty('--app-viewport-top')
+      delete document.documentElement.dataset.keyboardOpen
     }
     const update = () => {
       // 双指缩放由浏览器处理，保持当前布局尺寸。
@@ -68,6 +72,7 @@ export const useMobileViewport = (enabled: boolean) => {
         reset()
         return
       }
+      document.documentElement.dataset.keyboardOpen = 'true'
       frame.style.setProperty(
         '--app-viewport-height',
         `${viewport?.height ?? window.innerHeight}px`

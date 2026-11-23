@@ -104,6 +104,19 @@
   opacity: 1;
 }
 
+@media (hover: none) {
+  .actions {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 767px), (max-height: 520px) {
+  .bottom {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+}
+
 .continueButton {
   margin-left: auto;
 }

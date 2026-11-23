@@ -2,9 +2,23 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#ffffff" />
-    <title>API 使用 demo</title>
+    <title>Naut</title>
+    <script>
+      // 在样式表加载前同步主题底色，避免 Tauri/移动端冷启动白闪。
+      try {
+        var preference = localStorage.getItem('chat-demo:theme-preference')
+        var dark =
+          preference === 'dark' ||
+          (preference !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+        document.documentElement.style.backgroundColor = dark ? '#0f1115' : '#ffffff'
+      } catch (error) {
+        // 存储不可用时沿用样式表默认值。
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

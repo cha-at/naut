@@ -5,6 +5,8 @@ import { defineConfig } from '@rspack/cli'
 import { rspack, type Configuration } from '@rspack/core'
 
 const dev = process.env.NODE_ENV !== 'production'
+// Tauri 在 Android 真机调试时注入局域网地址，开发服务器需要监听所有网卡
+const tauriDevHost = process.env.TAURI_DEV_HOST
 const targets = ['chrome >= 105', 'edge >= 105', 'safari >= 16', 'firefox >= 110']
 const root = path.dirname(fileURLToPath(import.meta.url))
 const { version } = JSON.parse(
@@ -86,7 +88,13 @@ export const createConfig = ({
     }),
   ],
   performance: { hints: false },
-  devServer: { port: 8090, ...devServer },
+  devServer: {
+    port: 8090,
+    host: tauriDevHost ? '0.0.0.0' : 'localhost',
+    allowedHosts: tauriDevHost ? 'all' : undefined,
+    client: tauriDevHost ? { webSocketURL: `ws://${tauriDevHost}:8090/ws` } : undefined,
+    ...devServer,
+  },
 })
 
 // eslint-disable-next-line import/no-default-export

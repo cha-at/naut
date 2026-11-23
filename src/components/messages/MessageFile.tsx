@@ -1,11 +1,15 @@
 import clsx from 'clsx'
 import { useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
+import { isTauri } from '../../platform/env.js'
+import { openAttachmentBlob } from '../../platform/files.js'
 import { useUploads } from '../../services/attachments.js'
 import type { FileAttachment } from '../../services/chat/types.js'
 import { IconPhotoErrorFill20, IconRefreshOutline16 } from '../base/icons.js'
+import { showToast } from '../base/toastState.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { FileCard } from '../files/FileCard.js'
+import { openImageViewer } from '../files/imageViewerState.js'
 import { useFileView } from '../files/useFileView.js'
 import styles from './MessageFile.module.css'
 
@@ -24,6 +28,7 @@ const useUploadState = (file: FileAttachment) =>
  * - 图片：纯图片显示 120×120 缩略图，与文件混排时为 64×64；上传中显示 loading 蒙层，
  *   上传失败显示品牌色描边 + 中心重试图标（可重试）或 photo-error 图标（不可重试）。
  * - 文件：显示文件卡片。
+ * - 移动端原生壳里，图片走应用内预览，PDF/文档走系统保存对话框。
  */
 export const MessageFile = ({
   file,
@@ -34,7 +39,7 @@ export const MessageFile = ({
   onRetry: (() => void) | null
 }) => {
   const t = useTranslate()
-  const { image, url, link } = useFileView(file.id, file.name)
+  const { image, url, blob, type } = useFileView(file.id, file.name)
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const upload = useUploadState(file)
   const uploading = upload?.status === 'uploading'
@@ -43,6 +48,18 @@ export const MessageFile = ({
   const errorText = failed ? t(upload.error.key, upload.error.params) : undefined
 
   const retry = retryable ? onRetry : null
+  const openFile = () => {
+    if (!blob || !url) {
+      return
+    }
+    void openAttachmentBlob(blob, url, file.name, type).then((result) => {
+      if (result.status === 'failed') {
+        showToast({ key: 'fileSaveFailed', type: 'error' })
+      } else if (result.status === 'saved' && isTauri()) {
+        showToast({ key: 'fileSaved' })
+      }
+    })
+  }
 
   if (image && url !== null) {
     const preview = url ? (
@@ -112,11 +129,17 @@ export const MessageFile = ({
       )
     }
 
-    // 正常态：链接到原件
-    return link ? (
-      <a className={clsx(styles.image, styles.imageThumb)} {...link} title={file.name}>
+    // 正常态：应用内全屏预览
+    return url ? (
+      <button
+        type="button"
+        className={clsx(styles.image, styles.imageThumb)}
+        onClick={() => openImageViewer(url, file.name)}
+        title={file.name}
+        aria-label={file.name}
+      >
         {preview}
-      </a>
+      </button>
     ) : (
       // 原件还没加载出来（极短暂）
       <div className={styles.image} />
@@ -130,7 +153,7 @@ export const MessageFile = ({
       status={uploading ? 'uploading' : failed ? 'error' : 'done'}
       error={errorText}
       onRetry={retry ?? undefined}
-      link={link}
+      onOpen={blob && url ? openFile : undefined}
     />
   )
 }

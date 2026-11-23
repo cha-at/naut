@@ -98,3 +98,16 @@
     background: var(--dsw-alias-interactive-bg-hover);
   }
 }
+
+@media (max-width: 767px), (max-height: 520px) {
+  .trigger {
+    height: 44px;
+    border-radius: 22px;
+  }
+
+  .option {
+    min-height: 48px;
+    padding: 10px 12px;
+    font-size: 16px;
+  }
+}

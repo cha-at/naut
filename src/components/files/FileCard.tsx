@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import type { AnchorHTMLAttributes, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { formatSize, getExtension } from '../../services/attachments.js'
 import { IconCloseFill14, IconRefreshOutline16 } from '../base/icons.js'
@@ -18,7 +18,7 @@ export const FileCard = ({
   error,
   onRetry,
   onRemove,
-  link,
+  onOpen,
 }: {
   name: string
   size: number
@@ -26,7 +26,8 @@ export const FileCard = ({
   error?: string
   onRetry?: () => void
   onRemove?: () => void
-  link?: AnchorHTMLAttributes<HTMLAnchorElement>
+  /** 打开/保存原件；只在已完成的文件上提供 */
+  onOpen?: () => void
 }) => {
   const t = useTranslate()
   const ext = getExtension(name)
@@ -43,14 +44,14 @@ export const FileCard = ({
     description = error ?? t('uploadFileStatusFailed')
   }
   const onClick = status === 'error' ? onRetry : undefined
-  const fileLink = status === 'done' ? link : undefined
+  const open = status === 'done' ? onOpen : undefined
   return (
     <div
       className={clsx(
         styles.card,
         onRemove && styles.editable,
         status === 'error' && (onRemove || onRetry) && styles.failed,
-        (onClick || fileLink) && styles.clickable
+        (onClick || open) && styles.clickable
       )}
       title={
         status === 'error'
@@ -66,7 +67,17 @@ export const FileCard = ({
         <div className={styles.caption}>{name}</div>
         <div className={styles.subCaption}>{description}</div>
       </div>
-      {fileLink && <a {...fileLink} aria-label={name} />}
+      {open ? (
+        <button
+          type="button"
+          className={styles.openArea}
+          aria-label={name}
+          onClick={(event) => {
+            event.stopPropagation()
+            open()
+          }}
+        />
+      ) : null}
       {onRemove ? (
         <button
           type="button"

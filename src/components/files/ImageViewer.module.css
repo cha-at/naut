@@ -1,0 +1,27 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: calc(56px + var(--app-safe-top, 0px)) 16px calc(24px + var(--app-safe-bottom, 0px));
+  background-color: rgba(0, 0, 0, 0.92);
+}
+
+.image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+}
+
+.overlay .close {
+  position: absolute;
+  top: calc(8px + var(--app-safe-top, 0px));
+  right: calc(8px + var(--app-safe-right, 0px));
+  color: var(--dsw-static-neutral-bluish-00);
+  background-color: rgba(255, 255, 255, 0.14);
+}
