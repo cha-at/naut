@@ -10,13 +10,59 @@ const FILE_FILTERS = [
   { name: 'ZIP archive', extensions: ['application/zip', 'application/x-zip-compressed'] },
 ]
 
-const fileNameFromPath = (path: string): string => {
+const fileNameFromPath = (path: string, fallback = 'history.zip'): string => {
   const segment = path.split(/[\\/]/).pop() ?? ''
   try {
-    return decodeURIComponent(segment) || 'history.zip'
+    return decodeURIComponent(segment) || fallback
   } catch {
-    return segment || 'history.zip'
+    return segment || fallback
   }
+}
+
+/** 选择并读取 UTF-8 文本文件：Web 用隐藏 input，Tauri 用原生对话框 + fs */
+export const pickTextFile = async (options: {
+  accept: string
+  extensions: string[]
+}): Promise<{ name: string; text: string } | null> => {
+  if (!isTauri()) {
+    return new Promise((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = options.accept
+      input.style.display = 'none'
+      const finish = (file: File | null) => {
+        input.remove()
+        if (!file) {
+          resolve(null)
+          return
+        }
+        void file.text().then(
+          (text) => resolve({ name: file.name, text }),
+          () => resolve(null)
+        )
+      }
+      input.addEventListener('change', () => finish(input.files?.[0] ?? null), { once: true })
+      input.addEventListener('cancel', () => finish(null), { once: true })
+      document.body.appendChild(input)
+      input.click()
+    })
+  }
+
+  const [{ open }, { readTextFile }] = await Promise.all([
+    import('@tauri-apps/plugin-dialog'),
+    import('@tauri-apps/plugin-fs'),
+  ])
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    filters: [{ name: options.extensions.join('/').toUpperCase(), extensions: options.extensions }],
+  })
+  const path = Array.isArray(selected) ? selected[0] : selected
+  if (!path) {
+    return null
+  }
+  const text = await readTextFile(path)
+  return { name: fileNameFromPath(path, ''), text }
 }
 
 /** 保存任意 Blob：Tauri 走系统保存对话框和 fs，Web 走浏览器下载。 */

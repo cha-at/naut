@@ -8,6 +8,11 @@ import type {
   StopReason,
   TextCitation,
 } from '../api/types.js'
+import type { MemorySnapshot } from '../memory/types.js'
+import type { Toolset } from '../tools/schemas.js'
+
+/** 会话首条消息前捕获的人格快照；人格之后被编辑或删除都不影响该会话 */
+export type PersonaSnapshot = { id: string; name: string; prompt: string }
 
 /**
  * 消息附件。id 是本地标识（IndexedDB files 表的主键，原件按它存储，所有引用同一 id 的消息共用一份），
@@ -64,8 +69,60 @@ export type TextPart = {
   isTemplate?: boolean
 }
 
+/** 客户端工具调用：input 由 input_json_delta 拼出；流式期间的临时字段落盘前删除 */
+export type ClientToolUseBlock = {
+  type: 'tool_use'
+  id: string
+  name: string
+  input: unknown
+  /** 仅流式解析期使用 */
+  inputJson?: string
+  /** 仅流式解析期使用：JSON 非法 */
+  invalid?: boolean
+}
+
+/** 客户端工具结果：内容按 tool_use_id 回传给模型；display 仅供界面与撤销使用 */
+export type ClientToolResultBlock = {
+  type: 'tool_result'
+  tool_use_id: string
+  content: string
+  isError?: boolean
+  display?: {
+    file?: string
+    lines?: number
+    totalLines?: number
+    replacements?: number
+    backupId?: string
+    /** read：窗口内原始文本，最多保留 50 行用于预览 */
+    preview?: string
+    startLine?: number
+    /** list：本次列出的条目与截断标记 */
+    entries?: { name: string; size: number; modifiedAt: number; isMemory: boolean }[]
+    truncated?: boolean
+    /** edit：对照片段，超长时截断保存 */
+    oldString?: string
+    newString?: string
+    /** 联网搜索：查询词 */
+    query?: string
+    /** 联网搜索：结果条目（标题、链接、日期） */
+    results?: { title: string; url: string; date: string | null }[]
+    /** 联网抓取：页面标题（正文预览复用 preview） */
+    title?: string
+    /** 联网抓取：页面地址 */
+    url?: string
+  }
+}
+
 /** 服务端工具调用与结果块按协议原样保存；历史请求只回传 read_link 调用与结果 */
-export type ReplyBlock = ThinkingPart | TextPart | ServerToolBlock
+export type ReplyBlock =
+  | ThinkingPart
+  | TextPart
+  | ServerToolBlock
+  | ClientToolUseBlock
+  | ClientToolResultBlock
+
+/** 回复错误分类：upload 为发送前补传失败；tools / storage 为工具循环收尾 */
+export type AssistantMessageErrorKind = ApiErrorKind | 'upload' | 'tools' | 'storage'
 
 /**
  * pending：已发出请求，还没收到事件；streaming：正在接收；
@@ -81,8 +138,12 @@ export type AssistantMessage = MessageBranch & {
   model: ChatModel | null
   /** 请求时是否开启深度思考 */
   thinking?: boolean
-  /** 请求时是否声明 deepseek_web_search；关闭时仍声明 deepseek_read_url */
+  /** 旧字段：请求时是否声明 deepseek_web_search；新回复用 tools / toolset */
   search?: boolean
+  /** 请求时工具调用总开关；旧回复没有该字段 */
+  tools?: boolean
+  /** 本次回复实际声明给模型的工具集，降级后同步更新；旧回复没有该字段 */
+  toolset?: Toolset
   /** 本轮请求的系统信息快照；各回答版本独立保存，续写沿用。历史消息中缺省的快照保持为空。 */
   latestReminder?: string
   /** 是否允许作为续写前缀；仍需满足回复状态与内容限制。 */
@@ -95,8 +156,8 @@ export type AssistantMessage = MessageBranch & {
   /** 最近一次请求的用量，续写后更新 */
   usage?: MessageUsage
   error?: {
-    /** upload：发送前补传附件失败，请求没有发出 */
-    kind: ApiErrorKind | 'upload'
+    /** upload：发送前补传附件失败，请求没有发出；tools / storage：工具循环收尾 */
+    kind: AssistantMessageErrorKind
     message: string
     status?: number
     localMessage?: TranslationMessage
@@ -118,6 +179,10 @@ export type Session = {
   messages: Message[]
   /** undefined 表示线性消息列表；null 表示空会话。 */
   rootMessageId?: string | null
+  /** 会话首条消息前捕获的人格快照；旧会话与导入会话缺失，下次创建回复前补捕获 */
+  personaSnapshot?: PersonaSnapshot
+  /** 会话首条消息前捕获的两份记忆快照；缺失时下次创建回复前补捕获 */
+  memorySnapshot?: MemorySnapshot
 }
 
 /** 会话列表元数据；消息只在打开会话时加载。 */

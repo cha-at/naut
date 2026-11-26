@@ -1,5 +1,6 @@
 import { translate, type TranslationMessage } from '../../i18n/index.js'
 import { resizeUploadImage } from '../../utils/resizeUploadImage.js'
+import { API_ORIGIN } from './origin.js'
 import { readMessageEvent } from './parseEvent.js'
 import { readServerSentEvents } from './sse.js'
 import type {
@@ -11,7 +12,7 @@ import type {
 } from './types.js'
 
 /** 构建期 API 地址，默认 https://api.deepseek.com；本地开发支持开发服务器代理 */
-export const API_ORIGIN = __API_ORIGIN__
+export { API_ORIGIN } from './origin.js'
 /** Anthropic 兼容接口的前缀 */
 const ANTHROPIC_BASE_URL = `${API_ORIGIN}/anthropic/v1`
 /** 引用 Files API 上传的图片、调用 Anthropic 兼容 Files API 时必须携带 */

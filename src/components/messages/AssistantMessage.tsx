@@ -168,7 +168,7 @@ export const AssistantMessage = memo(function AssistantMessage({
               disabled={busy || refused}
               onClick={() => {
                 stopReadAloud()
-                regenerateReply(sessionId, message.id)
+                void regenerateReply(sessionId, message.id)
               }}
             />
           </div>
@@ -180,7 +180,7 @@ export const AssistantMessage = memo(function AssistantMessage({
               disabled={busy}
               onClick={() => {
                 stopReadAloud()
-                continueReply(sessionId, message.id)
+                void continueReply(sessionId, message.id)
               }}
             >
               {t('continueGenerating')}

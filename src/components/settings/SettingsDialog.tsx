@@ -29,6 +29,7 @@ import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import { showToast } from '../base/toastState.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
+import { openPersonalization } from '../personalization/personalizationState.js'
 import { closeSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
 import {
   useHistoryDelete,
@@ -109,6 +110,22 @@ const SettingsContent = ({
               <LocaleSetting />
               <TtsVoiceSetting />
               <LocationSetting />
+              <SettingCell
+                label={t('settingsPersonalization')}
+                description={t('settingsPersonalizationDescription')}
+                status={null}
+                action={
+                  <Button
+                    variant="outlined"
+                    size="m"
+                    id="settings-personalization-row"
+                    className={styles.cellButton}
+                    onClick={() => openPersonalization(useSettingsDialog.getState().section)}
+                  >
+                    {t('settingsPersonalizationOpen')}
+                  </Button>
+                }
+              />
             </>
           ) : (
             <>

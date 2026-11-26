@@ -10,6 +10,7 @@ build/
 !.env.example
 tmp/
 tmp-dirtest/
+specs/
 
 # Editor / OS
 .idea/

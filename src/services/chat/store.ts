@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { getAbortReason, throwIfAborted } from '../../utils/abort.js'
 import { createId } from '../../utils/id.js'
 import { ApiError, streamMessage } from '../api/client.js'
-import type { ChatModel, CreateMessageRequest } from '../api/types.js'
+import type { ChatModel, MessageUsage } from '../api/types.js'
 import { extractFileIds, getFileErrorCode, isRetryableApiError } from '../api/errors.js'
 import {
   cancelUpload,
@@ -11,6 +11,9 @@ import {
   uploadAttachment,
   useUploads,
 } from '../attachments.js'
+import { getActivePersona } from '../personas.js'
+import { memoryService } from '../memory/index.js'
+import { buildSystemPrompt } from '../prompt.js'
 import { useSettings } from '../settings.js'
 import { appendBranch, getVisibleMessages, normalizeSession, selectVersion } from './branches.js'
 import * as db from './db.js'
@@ -24,44 +27,51 @@ import {
 import { createLatestReminder } from './latestReminder.js'
 import {
   applyEvent,
+  buildLiveMessages,
   canContinueReply,
   getContextRounds,
   settleReply,
   toRequestMessages,
 } from './reply.js'
+import { requestTitle } from './title.js'
+import { isToolCombinationError, recordWebToolsIncompatible } from './toolCapabilities.js'
+import { executeTool, type ExecuteResult } from '../tools/execute.js'
+import {
+  buildTools,
+  buildToolset,
+  hasClientTools,
+  searchModeFor,
+  type SearchMode,
+  type Toolset,
+} from '../tools/schemas.js'
 import {
   toSessionSummary,
   type AssistantMessage,
+  type ClientToolUseBlock,
   type FileAttachment,
   type Message,
+  type PersonaSnapshot,
   type Session,
   type SessionSummary,
   type UserMessage,
 } from './types.js'
+import {
+  MEMORY_FILE_NAMES,
+  TOOL_ROUND_LIMIT,
+  TOOL_STORAGE_FAILURE_LIMIT,
+  type MemorySnapshot,
+} from '../memory/types.js'
+import type { TranslationKey } from '../../i18n/index.js'
+import { showToast } from '../../components/base/toastState.js'
 
 /** deepseek-flash 同时支持深度思考与图片输入 */
 const MODEL: ChatModel = 'deepseek-flash'
-/** 所有生成请求统一携带的助手身份说明 */
-const SYSTEM_PROMPT = '该助手为DeepSeek，由深度求索公司创造。'
 /** 保留最近打开的详情；当前会话、生成中及尚未成功保存的会话不淘汰。 */
 const SESSION_CACHE_LIMIT = 5
-/** 安全审核固定开启，所有请求都走扩展模式 */
-const SAFETY_CHECK = { level: 'high' } as const
 /** 服务端判定 file_id 失效后，重新补传并重发的最多次数（不含首次请求） */
 const FILE_RETRY_LIMIT = 2
 /** 退避基数，第 n 次重试等待 2^n 倍；连续失败达到上限就放弃，把原始报错展示出来 */
 const FILE_RETRY_BASE_DELAY = 1000
-
-/** 阅读链接始终开启，智能搜索开关控制是否另行声明搜索工具（含边想边搜）。 */
-const serverTools = (search: boolean): CreateMessageRequest['tools'] => {
-  const tools: CreateMessageRequest['tools'] = [
-    { type: 'deepseek_read_url', name: 'deepseek_read_url' },
-  ]
-  if (search) {
-    tools.push({ type: 'deepseek_web_search', name: 'deepseek_web_search' })
-  }
-  return tools
-}
 
 /** 允许自动补标题的请求；手动重命名后取消本轮标题写入，包含主动清空标题的情况。 */
 const titleRequests = new Set<AbortController>()
@@ -265,21 +275,149 @@ export const bindChatPersistence = () => {
   }
 }
 
-/** 按当前开关创建回复：深度思考对应 thinking，智能搜索控制 deepseek_web_search。 */
+/** 按当前开关创建回复：深度思考对应 thinking，联网搜索控制服务端工具。 */
 const createReply = (): AssistantMessage => {
-  const { thinking, search } = useSettings.getState()
+  const settings = useSettings.getState()
+  const toolset = buildToolset(settings)
   return {
     id: createId(),
     role: 'assistant',
     createdAt: Date.now(),
     model: MODEL,
-    thinking,
-    search,
+    thinking: settings.thinking,
+    search: toolset.includes('search'),
+    tools: settings.toolsEnabled,
+    toolset,
     prefix: true,
     status: 'pending',
     blocks: [],
   }
 }
+
+/** 多轮工具请求的用量累加：每轮 message_delta 给的是本轮累计值 */
+const addUsage = (
+  total: MessageUsage | undefined,
+  part: MessageUsage | undefined
+): MessageUsage | undefined => {
+  if (!part) {
+    return total
+  }
+  if (!total) {
+    return { ...part, ...(part.server_tool_use ? { server_tool_use: { ...part.server_tool_use } } : {}) }
+  }
+  const server = total.server_tool_use || part.server_tool_use
+  return {
+    input_tokens: total.input_tokens + part.input_tokens,
+    cache_creation_input_tokens:
+      total.cache_creation_input_tokens + part.cache_creation_input_tokens,
+    cache_read_input_tokens: total.cache_read_input_tokens + part.cache_read_input_tokens,
+    output_tokens: total.output_tokens + part.output_tokens,
+    ...(server
+      ? {
+          server_tool_use: {
+            web_search_requests:
+              (total.server_tool_use?.web_search_requests ?? 0) +
+              (part.server_tool_use?.web_search_requests ?? 0),
+            tool_search:
+              (total.server_tool_use?.tool_search ?? 0) +
+              (part.server_tool_use?.tool_search ?? 0),
+          },
+        }
+      : {}),
+  }
+}
+
+/** 工具循环收尾：保留已有块，以错误结束并提示重新生成 */
+const failReply = (
+  reply: AssistantMessage,
+  kind: 'tools' | 'storage',
+  key: 'toolCallRoundLimit' | 'toolCallStorageFailed'
+): AssistantMessage =>
+  settleReply(reply, 'error', Date.now(), { kind, message: '', localMessage: { key } })
+
+/** 把工具结果追加到同一条回复：内容块顺序与到达顺序一致 */
+const appendToolResult = (
+  reply: AssistantMessage,
+  call: ClientToolUseBlock,
+  result: ExecuteResult
+): AssistantMessage => ({
+  ...reply,
+  blocks: [
+    ...reply.blocks,
+    {
+      type: 'tool_result',
+      tool_use_id: call.id,
+      content: result.content,
+      ...(result.isError ? { isError: true } : {}),
+      ...(result.display ? { display: result.display } : {}),
+    },
+  ],
+})
+
+type ReplyContext = { persona: PersonaSnapshot; memory: MemorySnapshot }
+
+/** 当前人格的会话快照：复制字段，之后编辑人格不影响已捕获的会话 */
+const snapshotPersona = (): PersonaSnapshot => {
+  const persona = getActivePersona()
+  return { id: persona.id, name: persona.name, prompt: persona.prompt }
+}
+
+/**
+ * 新会话：不依赖会话对象先读取人格与记忆，失败时不创建会话、不消耗草稿。
+ * 记忆读取包含模板创建，因此隔离模式下产生的错误会直接阻止发送。
+ */
+const captureReplyContext = async (): Promise<ReplyContext> => ({
+  persona: snapshotPersona(),
+  memory: await memoryService.readSnapshot(),
+})
+
+/** 等待一次落盘成功；快照写入失败视为捕获失败，避免界面有快照但重启后丢失 */
+const persistNow = async (sessionId: string): Promise<void> => {
+  const session = getSession(sessionId)
+  if (!session || deletingSessions.has(sessionId)) {
+    throw new Error('Session is not available')
+  }
+  const files = pendingFiles.get(sessionId)
+  await db.saveSession(session, files)
+  if (pendingFiles.get(sessionId) === files) {
+    pendingFiles.delete(sessionId)
+  }
+  unsavedSessions.delete(sessionId)
+  set((state) => ({
+    sessionSaveErrors: Object.fromEntries(
+      Object.entries(state.sessionSaveErrors).filter(([id]) => id !== sessionId)
+    ),
+  }))
+}
+
+/**
+ * 确保会话有人格与记忆快照：缺失时捕获并等待落盘。
+ * 旧会话、导入会话在下一次创建回复前补捕获；失败向上抛出，由发送流程阻止发送。
+ */
+const ensureReplyContext = async (sessionId: string): Promise<ReplyContext> => {
+  const session = getSession(sessionId)
+  if (!session) {
+    throw new Error('Session is not available')
+  }
+  let persona = session.personaSnapshot
+  let memory = session.memorySnapshot
+  const updates: Partial<Session> = {}
+  if (!persona) {
+    persona = snapshotPersona()
+    updates.personaSnapshot = persona
+  }
+  if (!memory) {
+    memory = await memoryService.readSnapshot()
+    updates.memorySnapshot = memory
+  }
+  if (Object.keys(updates).length > 0) {
+    updateSession(sessionId, (current) => ({ ...current, ...updates }))
+    await persistNow(sessionId)
+  }
+  return { persona, memory }
+}
+
+const tryShowToast = (key: TranslationKey) => showToast({ key, type: 'error' })
 
 /** 仍在生成中的回复（页面关闭或导出时未结束）按「已停止」处理 */
 const settleInterrupted = (session: Session): Session => {
@@ -579,7 +717,7 @@ export const stopReply = (sessionId: string) => getStreamController(sessionId)?.
  * 提交指定会话的最新草稿；null 表示新建会话。
  * 同步接收成功才清空草稿，附件原件由会话接管；保存失败仍通过保存入口重试。
  */
-export const sendMessage = (targetSessionId: string | null) => {
+export const sendMessage = async (targetSessionId: string | null): Promise<boolean> => {
   if (get().importingHistory || !get().ready) {
     return false
   }
@@ -588,7 +726,6 @@ export const sendMessage = (targetSessionId: string | null) => {
     return false
   }
   const { text, files } = prepared
-  const now = Date.now()
   let sessionId = targetSessionId
   if (
     sessionId !== null &&
@@ -596,6 +733,27 @@ export const sendMessage = (targetSessionId: string | null) => {
   ) {
     return false
   }
+
+  // 发送前捕获人格与记忆快照：失败时不创建会话、不消耗草稿
+  let context: ReplyContext
+  try {
+    context = sessionId === null ? await captureReplyContext() : await ensureReplyContext(sessionId)
+  } catch {
+    tryShowToast('snapshotCaptureFailed')
+    return false
+  }
+  // 等待期间可能开始生成或被删除，重新校验
+  if (get().importingHistory) {
+    return false
+  }
+  if (
+    sessionId !== null &&
+    (deletingSessions.has(sessionId) || getStreamController(sessionId) || !getSession(sessionId))
+  ) {
+    return false
+  }
+
+  const now = Date.now()
   if (sessionId === null) {
     const session: Session = {
       id: createId(),
@@ -604,6 +762,8 @@ export const sendMessage = (targetSessionId: string | null) => {
       updatedAt: now,
       messages: [],
       rootMessageId: null,
+      personaSnapshot: context.persona,
+      memorySnapshot: context.memory,
     }
     sessionId = session.id
     touchSession(session.id)
@@ -652,12 +812,21 @@ export const sendMessage = (targetSessionId: string | null) => {
 }
 
 /** 重新生成当前路径上的回答：在原问题下新增版本，不覆盖旧回答和后续对话。 */
-export const regenerateReply = (sessionId: string, messageId?: string) => {
+export const regenerateReply = async (sessionId: string, messageId?: string): Promise<void> => {
   if (get().importingHistory || deletingSessions.has(sessionId)) {
     return
   }
   const session = getSession(sessionId)
   if (!session || getStreamController(sessionId)) {
+    return
+  }
+  try {
+    await ensureReplyContext(sessionId)
+  } catch {
+    tryShowToast('snapshotCaptureFailed')
+    return
+  }
+  if (get().importingHistory || deletingSessions.has(sessionId) || getStreamController(sessionId)) {
     return
   }
   const path = getVisibleMessages(session)
@@ -678,12 +847,25 @@ export const regenerateReply = (sessionId: string, messageId?: string) => {
 }
 
 /** 编辑提问后新增同父版本，保留原文件；旧问题的所有回答与后续对话仍可切回。 */
-export const editMessage = (sessionId: string, messageId: string, content: string): boolean => {
+export const editMessage = async (
+  sessionId: string,
+  messageId: string,
+  content: string
+): Promise<boolean> => {
   if (get().importingHistory || deletingSessions.has(sessionId)) {
     return false
   }
   const session = getSession(sessionId)
   if (!session || getStreamController(sessionId)) {
+    return false
+  }
+  try {
+    await ensureReplyContext(sessionId)
+  } catch {
+    tryShowToast('snapshotCaptureFailed')
+    return false
+  }
+  if (get().importingHistory || deletingSessions.has(sessionId) || getStreamController(sessionId)) {
     return false
   }
   const path = getVisibleMessages(session)
@@ -722,12 +904,21 @@ export const selectMessageVersion = (sessionId: string, messageId: string) => {
 }
 
 /** 继续最后一条未完成的回答：保留原消息与开关，仅将新流的内容追加到原块之后。 */
-export const continueReply = (sessionId: string, messageId: string) => {
+export const continueReply = async (sessionId: string, messageId: string): Promise<void> => {
   if (get().importingHistory || deletingSessions.has(sessionId)) {
     return
   }
   const session = getSession(sessionId)
   if (!session || getStreamController(sessionId)) {
+    return
+  }
+  try {
+    await ensureReplyContext(sessionId)
+  } catch {
+    tryShowToast('snapshotCaptureFailed')
+    return
+  }
+  if (get().importingHistory || deletingSessions.has(sessionId) || getStreamController(sessionId)) {
     return
   }
   const path = getVisibleMessages(session)
@@ -1013,11 +1204,15 @@ const waitForRetry = (attempt: number, signal: AbortSignal) =>
  */
 const streamReply = async (sessionId: string, initial: AssistantMessage, request: Request) => {
   const controller = new AbortController()
-  if (!getSession(sessionId)?.title) {
+  let toolset: Toolset = initial.toolset ?? buildToolset(useSettings.getState())
+  /** 联网工具来源：内置服务端工具，或接口不兼容时的独立 Search / Fetch API */
+  let searchMode: SearchMode = searchModeFor(toolset, useSettings.getState().toolCapabilities)
+  // 含客户端工具的回复完成后单独请求标题，不进入内联标题集合
+  if (!getSession(sessionId)?.title && !hasClientTools(toolset)) {
     titleRequests.add(controller)
   }
   set((state) => ({ streaming: { ...state.streaming, [sessionId]: controller } }))
-  let reply = initial
+  let reply: AssistantMessage = { ...initial, toolset }
   let frame = 0
   const flush = () => {
     cancelAnimationFrame(frame)
@@ -1031,6 +1226,9 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       /** 附件补齐前出错属于上传失败，请求还没有发出 */
       let preparing = true
       let receivedContent = false
+      /** 会话快照与系统提示词；降级重试时按新的 searchMode 重算提示词 */
+      let context: ReplyContext | undefined
+      let system = ''
       try {
         const prepared = await prepareFiles(sessionId, request, controller.signal)
         preparing = false
@@ -1041,54 +1239,166 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         reply = { ...reply, latestReminder }
         updateReply(sessionId, reply)
         persist(sessionId)
-        const messages = toRequestMessages(
+        const baseMessages = toRequestMessages(
           prepared.history,
           prepared.question,
           prepared.prefix,
           initial.thinking ?? false,
           latestReminder
         )
-        const events = streamMessage(
-          useSettings.getState().apiKey ?? '',
-          {
-            model: initial.model ?? MODEL,
-            system: SYSTEM_PROMPT,
-            messages,
-            thinking: { type: initial.thinking ? 'enabled' : 'disabled' },
-            safety_check: SAFETY_CHECK,
-            tools: serverTools(initial.search ?? false),
-            ...(titleRequests.has(controller) ? { title: { enabled: true } } : {}),
-          },
-          controller.signal
-        )
+        // 会话快照在发送前已捕获；此处只读取，缺失时（异常路径）补一次
+        const session = getSession(sessionId)
+        context =
+          session?.personaSnapshot && session.memorySnapshot
+            ? { persona: session.personaSnapshot, memory: session.memorySnapshot }
+            : await ensureReplyContext(sessionId)
+        system = buildSystemPrompt({ ...context, toolset, searchMode })
+        /** 本次回复内已观察的文件：两份记忆由快照视为已观察 */
+        const observed = new Set<string>(MEMORY_FILE_NAMES)
+        let storageFailures = 0
+        /** 流事件里的临时块索引，每轮重建 */
         const blockIndexes = new Map<number, number>()
-        for await (const event of events) {
-          receivedContent ||= event.type === 'content_block_start'
-          if (
-            event.type === 'message_delta' &&
-            (event.delta.stop_reason === 'end_turn' || event.delta.stop_reason === 'max_tokens') &&
-            event.delta.title?.trim() &&
-            titleRequests.has(controller) &&
-            !controller.signal.aborted &&
-            !get().importingHistory
-          ) {
-            const title = event.delta.title.trim()
-            updateSession(sessionId, (session) => (session.title ? session : { ...session, title }))
-            titleRequests.delete(controller)
+        let messages = baseMessages
+        /** 续写时在原有用量上继续累加 */
+        let totalUsage = initial.usage
+
+        for (let round = 0; ; round += 1) {
+          /** 本轮新增块的起点，用于只处理本轮的工具调用 */
+          const roundStart = reply.blocks.length
+          const inlineTitle = !hasClientTools(toolset) && titleRequests.has(controller)
+          const events = streamMessage(
+            useSettings.getState().apiKey ?? '',
+            {
+              model: initial.model ?? MODEL,
+              system,
+              messages,
+              thinking: { type: initial.thinking ? 'enabled' : 'disabled' },
+              tools: buildTools(toolset, searchMode),
+              ...(inlineTitle ? { title: { enabled: true } } : {}),
+            },
+            controller.signal
+          )
+          for await (const event of events) {
+            receivedContent ||= event.type === 'content_block_start'
+            if (
+              event.type === 'message_delta' &&
+              inlineTitle &&
+              (event.delta.stop_reason === 'end_turn' || event.delta.stop_reason === 'max_tokens') &&
+              event.delta.title?.trim() &&
+              !controller.signal.aborted &&
+              !get().importingHistory
+            ) {
+              const title = event.delta.title.trim()
+              updateSession(sessionId, (current) => (current.title ? current : { ...current, title }))
+              titleRequests.delete(controller)
+            }
+            reply = applyEvent(reply, event, Date.now(), blockIndexes)
+            if (document.visibilityState === 'hidden') {
+              flush()
+            } else {
+              frame ||= requestAnimationFrame(flush)
+            }
           }
-          reply = applyEvent(reply, event, Date.now(), blockIndexes)
-          if (document.visibilityState === 'hidden') {
+          // 每轮结束把本轮用量累加进回复总量
+          totalUsage = addUsage(totalUsage, reply.usage)
+          reply = { ...reply, usage: totalUsage }
+          if (reply.stopReason === 'refusal') {
+            break
+          }
+          const calls = reply.blocks
+            .slice(roundStart)
+            .filter((item): item is ClientToolUseBlock => item.type === 'tool_use')
+          const pending = calls.filter(
+            (call) =>
+              !reply.blocks.some(
+                (item) => item.type === 'tool_result' && item.tool_use_id === call.id
+              )
+          )
+          if (reply.stopReason !== 'tool_use') {
+            break
+          }
+          if (pending.length === 0) {
+            // 要求调用工具却没有可执行调用：协议异常，避免空转
+            reply = settleReply(reply, 'error', Date.now(), {
+              kind: 'protocol',
+              message: 'The model stopped to call a tool but sent no tool call',
+            })
+            break
+          }
+          if (round >= TOOL_ROUND_LIMIT) {
+            reply = failReply(reply, 'tools', 'toolCallRoundLimit')
+            break
+          }
+          for (const call of pending) {
+            throwIfAborted(controller.signal)
+            const result = await executeTool(call, {
+              toolset,
+              observed,
+              toolUseId: call.id,
+              signal: controller.signal,
+              apiKey: useSettings.getState().apiKey ?? '',
+              question: prepared.question.content,
+            })
+            storageFailures = result.storageError ? storageFailures + 1 : 0
+            reply = appendToolResult(reply, call, result)
             flush()
-          } else {
-            frame ||= requestAnimationFrame(flush)
+            persist(sessionId)
+            if (storageFailures >= TOOL_STORAGE_FAILURE_LIMIT) {
+              reply = failReply(reply, 'storage', 'toolCallStorageFailed')
+              break
+            }
           }
+          if (reply.status === 'error') {
+            break
+          }
+          messages = buildLiveMessages(baseMessages, reply)
         }
-        reply = settleReply(reply, 'done', Date.now())
+        if (reply.status !== 'error') {
+          reply = settleReply(reply, 'done', Date.now())
+        }
+        // 含客户端工具的回复：完成且标题仍为空时单独请求标题
+        if (
+          reply.status === 'done' &&
+          reply.stopReason !== 'refusal' &&
+          hasClientTools(toolset) &&
+          !getSession(sessionId)?.title &&
+          prepared.question.content.trim()
+        ) {
+          void requestTitle({
+            apiKey: useSettings.getState().apiKey ?? '',
+            model: initial.model ?? MODEL,
+            question: prepared.question.content,
+            signal: controller.signal,
+          }).then((title) => {
+            if (!title || get().importingHistory || getSession(sessionId)?.title) {
+              return
+            }
+            updateSession(sessionId, (current) => (current.title ? current : { ...current, title }))
+            persist(sessionId)
+          })
+        }
         break
       } catch (error) {
         if (controller.signal.aborted) {
           reply = settleReply(reply, 'stopped', Date.now())
           break
+        }
+        // 内置联网工具与客户端工具不能同请求：改用独立 Search / Fetch API 重试一次
+        if (
+          !preparing &&
+          !receivedContent &&
+          searchMode === 'server' &&
+          toolset.includes('search') &&
+          hasClientTools(toolset) &&
+          isToolCombinationError(error)
+        ) {
+          searchMode = 'client'
+          if (context) {
+            system = buildSystemPrompt({ ...context, toolset, searchMode })
+          }
+          recordWebToolsIncompatible()
+          showToast({ key: 'toolSearchDegraded' })
+          continue
         }
         if (preparing) {
           reply = settleReply(reply, 'error', Date.now(), {

@@ -31,6 +31,8 @@ tauri-plugin-fs = "2"
 tauri-plugin-clipboard-manager = "2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+# 原生记忆的 SHA-256（备份与内容哈希）；0.10.x 已在锁文件中作为间接依赖存在。
+sha2 = "0.10"
 
 # Android debug 构建会以 dev profile 编译"构建脚本的依赖"（这里走
 # tauri-build -> tauri-winres -> embed-resource -> vswhom-sys 这条链）。

@@ -46,6 +46,15 @@ const toReplyBlock = (block: OutputBlockStart, now: number): ReplyBlock | null =
     case 'web_search_tool_result':
     case 'web_fetch_tool_result':
       return block
+    case 'tool_use':
+      // input 先占位，完整 JSON 在 content_block_stop 时解析
+      return {
+        type: 'tool_use',
+        id: block.id,
+        name: block.name,
+        input: block.input ?? {},
+        inputJson: '',
+      }
     default:
       return null
   }
@@ -84,11 +93,12 @@ export const applyEvent = (
       blockIndexes.delete(event.index)
       const block = toReplyBlock(event.content_block, now)
       if (!block) {
-        // 客户端工具内容不保存；未完成的工具往返也不能作为续写前缀。
-        return event.content_block.type === 'tool_use' ? { ...next, prefix: false } : next
+        return next
       }
       blockIndexes.set(event.index, next.blocks.length)
-      return { ...next, blocks: [...next.blocks, block] }
+      // 含客户端工具调用的回复不能作为续写前缀
+      const prefix = event.content_block.type === 'tool_use' ? false : next.prefix
+      return { ...next, prefix, blocks: [...next.blocks, block] }
     }
     case 'content_block_delta': {
       const index = blockIndexes.get(event.index)
@@ -109,6 +119,9 @@ export const applyEvent = (
         if (block.type === 'text' && delta.type === 'citations_delta') {
           return { ...block, citations: [...(block.citations ?? []), delta.citation] }
         }
+        if (block.type === 'tool_use' && delta.type === 'input_json_delta') {
+          return { ...block, inputJson: (block.inputJson ?? '') + delta.partial_json }
+        }
         return block
       })
     }
@@ -118,11 +131,28 @@ export const applyEvent = (
         return next
       }
       blockIndexes.delete(event.index)
-      return updateBlock(next, index, (block) =>
-        block.type === 'thinking' && block.startedAt !== undefined && block.endedAt === undefined
-          ? { ...block, endedAt: now }
-          : block
-      )
+      return updateBlock(next, index, (block) => {
+        if (block.type === 'thinking' && block.startedAt !== undefined && block.endedAt === undefined) {
+          return { ...block, endedAt: now }
+        }
+        if (block.type === 'tool_use') {
+          // 块结束时才解析完整 JSON；非法时保留 invalid 标记，由执行层返回错误结果
+          const raw = block.inputJson
+          if (raw === undefined) {
+            return block
+          }
+          const base = { type: 'tool_use' as const, id: block.id, name: block.name }
+          if (!raw.trim()) {
+            return { ...base, input: {} }
+          }
+          try {
+            return { ...base, input: JSON.parse(raw) as unknown }
+          } catch {
+            return { ...base, input: {}, invalid: true }
+          }
+        }
+        return block
+      })
     }
     case 'message_delta':
       return {
@@ -153,9 +183,14 @@ export const settleReply = (
     if (reply.stopReason === 'refusal' && (block.type === 'thinking' || block.type === 'text')) {
       return []
     }
-    return block.type === 'thinking' && block.startedAt !== undefined && block.endedAt === undefined
-      ? [{ ...block, endedAt: now }]
-      : [block]
+    if (block.type === 'thinking' && block.startedAt !== undefined && block.endedAt === undefined) {
+      return [{ ...block, endedAt: now }]
+    }
+    if (block.type === 'tool_use') {
+      // 落盘前清理流式临时字段
+      return [{ type: 'tool_use', id: block.id, name: block.name, input: block.input }]
+    }
+    return [block]
   }),
 })
 
@@ -174,8 +209,11 @@ export const canContinueReply = (reply: AssistantMessage): boolean => {
     !reply.prefix ||
     reply.stopReason === 'refusal' ||
     reply.stopReason === 'tool_use' ||
+    // 含客户端工具调用的回复不能续写，重新生成请走新的回复
     reply.blocks.some(
       (block) =>
+        block.type === 'tool_use' ||
+        block.type === 'tool_result' ||
         block.type === 'server_tool_use' ||
         block.type === 'web_search_tool_result' ||
         block.type === 'web_fetch_tool_result' ||
@@ -213,19 +251,72 @@ const toUserParam = ({ content, files }: UserMessage): MessageParam => {
 }
 
 /**
- * assistant 的内容块按历史与续写场景转换：
- * - 历史思考及其签名不回传；开启思考时续写只保留本轮非空白思考及其签名；
- * - 文本块去掉 citations（服务端忽略）。相邻文本直接拼接，被思考或工具隔开的文本用空行连接；
- *   省略历史思考后仍保留其前后正文的空行；
- * - 工具调用和结果只保留 kind 为 read_link 的块，其他历史工具块不回传；
- * - 阅读链接结果原样回传，保留 signature：服务端解密后将页面拼回该轮提问末尾；
+ * 续写前缀：只保留正文与（开启思考时的）本轮思考。
+ * 空思考不改变续写位置，也不应把两段正文隔开导致后端额外插入空行。
  */
-const toAssistantParam = (
+const toPrefixParam = (
   { blocks }: AssistantMessage,
-  prefix = false,
-  thinking = false
+  thinking: boolean
 ): Extract<MessageParam, { role: 'assistant' }> => {
   const content: AssistantBlockParam[] = []
+  let text: TextBlockParam | null = null
+  for (const block of blocks) {
+    if (block.type === 'thinking') {
+      if (!thinking || !block.thinking.trim()) {
+        continue
+      }
+      text = null
+      const { thinking: body, signature } = block
+      content.push({ type: 'thinking', thinking: body, signature: signature ?? '' })
+      continue
+    }
+    if (block.type !== 'text' || block.isTemplate) {
+      text = null
+      continue
+    }
+    if (text) {
+      text.text += block.text
+    } else {
+      const previous = content.at(-1)
+      text = {
+        type: 'text',
+        text: `${previous?.type === 'text' ? '\n\n' : ''}${block.text}`,
+      }
+      content.push(text)
+    }
+  }
+  return {
+    role: 'assistant',
+    content: content.filter((block) => block.type !== 'text' || block.text !== ''),
+  }
+}
+
+export type BuildOptions = {
+  /** 是否回传思考块：实时工具轮次需要，历史轮次不回传 */
+  includeThinking: boolean
+  /** 实时请求：服务端工具与客户端工具都原样保留 */
+  live: boolean
+}
+
+/**
+ * 把一条回复重建为请求消息：客户端工具调用与结果拆成 assistant / user 消息，
+ * 并按 tool_use_id 只回传成对的调用；孤立的调用与结果直接丢弃。
+ *
+ * - 文本块去掉 citations（服务端忽略）；相邻文本直接拼接，被思考或工具隔开的文本用空行连接；
+ * - 历史思考及其签名不回传；live 时保留，满足工具续接；
+ * - 服务端工具历史只保留 read_link，live 原样保留；
+ * - 工具结果的 user 消息只含 tool_result 块，位于该段 assistant 之后。
+ */
+export const buildReplyMessages = (
+  reply: AssistantMessage,
+  options: BuildOptions = { includeThinking: false, live: false }
+): MessageParam[] => {
+  const { blocks } = reply
+  const resultIds = new Set(
+    blocks.flatMap((block) => (block.type === 'tool_result' ? [block.tool_use_id] : []))
+  )
+  const useIds = new Set(blocks.flatMap((block) => (block.type === 'tool_use' ? [block.id] : [])))
+  const paired = new Set([...resultIds].filter((id) => useIds.has(id)))
   // 成功阅读的网页靠签名恢复正文；缺少有效签名时，调用与结果都不回传。
   const unsignedReadLinks = new Set(
     blocks.flatMap((block) =>
@@ -237,51 +328,105 @@ const toAssistantParam = (
         : []
     )
   )
+
+  const messages: MessageParam[] = []
+  let assistant: AssistantBlockParam[] = []
+  let results: Extract<MessageParam, { role: 'user' }>['content'] = []
   /** 正在拼接的文本块；遇到任何非文本块（含不回传的思考块）就结束 */
   let text: TextBlockParam | null = null
+
+  const flushAssistant = () => {
+    text = null
+    if (assistant.length > 0) {
+      messages.push({ role: 'assistant', content: assistant })
+      assistant = []
+    }
+  }
+  const flushResults = () => {
+    if (results.length > 0) {
+      messages.push({ role: 'user', content: results })
+      results = []
+    }
+  }
+
   for (const block of blocks) {
-    // 空思考不改变续写位置，也不应把两段正文隔开，导致后端额外插入空行。
-    if (prefix && block.type === 'thinking' && !block.thinking.trim()) {
+    if (block.type === 'tool_result') {
+      if (!paired.has(block.tool_use_id)) {
+        continue
+      }
+      flushAssistant()
+      results.push({
+        type: 'tool_result',
+        tool_use_id: block.tool_use_id,
+        content: block.content,
+        ...(block.isError ? { is_error: true } : {}),
+      })
       continue
     }
+    if (results.length > 0) {
+      flushResults()
+    }
     if (block.type === 'text') {
+      if (block.isTemplate) {
+        continue
+      }
       if (text) {
         text.text += block.text
       } else {
-        const previous = content.at(-1)
+        const previous = assistant.at(-1)
         text = {
           type: 'text',
           text: `${previous?.type === 'text' ? '\n\n' : ''}${block.text}`,
         }
-        content.push(text)
+        assistant.push(text)
       }
       continue
     }
     text = null
-    if (prefix && thinking && block.type === 'thinking') {
-      // 续写保留本轮思考，历史轮次的思考省略。
-      const { type, thinking, signature } = block
-      content.push({ type, thinking, signature: signature ?? '' })
-    } else if (
-      block.type === 'server_tool_use' &&
-      block.kind === 'read_link' &&
-      !unsignedReadLinks.has(block.id)
-    ) {
-      const { type, id, name, input, kind } = block
-      content.push({ type, id, name, input, kind })
-    } else if (
-      block.type === 'web_fetch_tool_result' &&
-      block.kind === 'read_link' &&
-      !unsignedReadLinks.has(block.tool_use_id)
-    ) {
-      content.push(block)
+    if (block.type === 'thinking') {
+      if (!options.includeThinking || !block.thinking.trim()) {
+        continue
+      }
+      const { thinking, signature } = block
+      assistant.push({ type: 'thinking', thinking, signature: signature ?? '' })
+      continue
+    }
+    if (block.type === 'tool_use') {
+      if (!paired.has(block.id)) {
+        continue
+      }
+      assistant.push({ type: 'tool_use', id: block.id, name: block.name, input: block.input })
+      continue
+    }
+    if (block.type === 'server_tool_use') {
+      if (options.live || (block.kind === 'read_link' && !unsignedReadLinks.has(block.id))) {
+        const { type, id, name, input, kind } = block
+        assistant.push({ type, id, name, input, kind })
+      }
+      continue
+    }
+    if (block.type === 'web_search_tool_result') {
+      if (options.live) {
+        assistant.push(block)
+      }
+      continue
+    }
+    if (block.type === 'web_fetch_tool_result') {
+      if (options.live || (block.kind === 'read_link' && !unsignedReadLinks.has(block.tool_use_id))) {
+        assistant.push(block)
+      }
     }
   }
-  return {
-    role: 'assistant',
-    content: content.filter((block) => block.type !== 'text' || block.text !== ''),
-  }
+  flushAssistant()
+  flushResults()
+  return messages
 }
+
+/** 实时工具轮次：在历史 + 本轮提问之后追加当前回复的全部内容块与工具结果 */
+export const buildLiveMessages = (
+  base: MessageParam[],
+  reply: AssistantMessage
+): MessageParam[] => [...base, ...buildReplyMessages(reply, { includeThinking: true, live: true })]
 
 /** 历史中会进入请求上下文的轮次：提问后紧跟可用回答的才保留 */
 export const getContextRounds = (history: Message[]): [UserMessage, AssistantMessage][] => {
@@ -322,12 +467,12 @@ export const toRequestMessages = (
       continue
     }
     appendReminder(reply.latestReminder)
-    messages.push(toUserParam(user), toAssistantParam(reply))
+    messages.push(toUserParam(user), ...buildReplyMessages(reply))
   }
   appendReminder(latestReminder)
   messages.push(toUserParam(question))
   if (prefix?.prefix) {
-    const assistant = toAssistantParam(prefix, true, thinking)
+    const assistant = toPrefixParam(prefix, thinking)
     // 没有非空白正文或有效思考时直接重发原问题，避免服务端拒绝空 Prefill。
     if (
       assistant.content.some(

@@ -2,6 +2,10 @@ import { closeTopModal, hasOpenModal } from '../components/base/Modal.js'
 import { useImageViewer } from '../components/files/imageViewerState.js'
 import { closeSearchPanel, useSearchPanel } from '../components/search/searchPanelState.js'
 import { closeMobileSider, useMobileSider } from '../components/sider/mobileSiderState.js'
+import {
+  requestPersonalizationBack,
+  usePersonalization,
+} from '../components/personalization/personalizationState.js'
 import { closeSettings, useSettingsDialog } from '../components/settings/settingsDialogState.js'
 import { stopReply, useChatStore } from '../services/chat/store.js'
 import { stopReadAloud } from '../services/speech/readAloud.js'
@@ -75,6 +79,11 @@ export const installBackHandler = (): (() => void) => {
         }
         if (hasOpenModal()) {
           closeTopModal()
+          return
+        }
+        // 个性化页覆盖在设置与聊天之上，返回键先关闭它
+        if (usePersonalization.getState().open) {
+          requestPersonalizationBack()
           return
         }
         if (useSearchPanel.getState().entry) {

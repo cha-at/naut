@@ -31,6 +31,7 @@ import { Tooltip } from '../base/Tooltip.js'
 import { Markdown } from '../markdown/Markdown.js'
 import { SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
+import { ToolCallCard } from './ToolCallCard.js'
 import styles from './ReplyArea.module.css'
 import './thinking.markdown.css'
 
@@ -114,7 +115,15 @@ export const ReplyArea = memo(function ReplyArea({
 })
 
 const stepKey = (step: Step, index: number) =>
-  step.type === 'thinking' || step.type === 'text' || step.type === 'search'
+  step.type === 'thinking' ||
+  step.type === 'text' ||
+  step.type === 'search' ||
+  step.type === 'list' ||
+  step.type === 'read' ||
+  step.type === 'edit' ||
+  step.type === 'web_search' ||
+  step.type === 'web_fetch' ||
+  step.type === 'tool_error'
     ? step.key
     : `${step.type}-${index}`
 
@@ -165,6 +174,13 @@ const StepItem = ({
       return <FindRow step={step} />
     case 'read_link':
       return <ReadLinkRow step={step} />
+    case 'list':
+    case 'read':
+    case 'edit':
+    case 'web_search':
+    case 'web_fetch':
+    case 'tool_error':
+      return <ToolCallCard step={step} message={message} />
     default:
       return null
   }

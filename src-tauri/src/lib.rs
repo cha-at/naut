@@ -1,3 +1,5 @@
+mod memory;
+
 use tauri::{plugin::TauriPlugin, Manager, Runtime, Url};
 
 /// 顶层导航白名单：只允许应用自身协议和当前开发服务器，其余交给系统浏览器。
@@ -44,6 +46,20 @@ pub fn run() {
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_clipboard_manager::init())
     .plugin(navigation_guard())
+    .manage(memory::MemoryState::new())
+    .invoke_handler(tauri::generate_handler![
+      memory::memory_paths,
+      memory::memory_list,
+      memory::memory_create,
+      memory::memory_rename,
+      memory::memory_delete,
+      memory::memory_read,
+      memory::memory_read_full,
+      memory::memory_write,
+      memory::memory_edit,
+      memory::memory_undo,
+      memory::memory_backup_state
+    ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

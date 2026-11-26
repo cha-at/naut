@@ -1,13 +1,13 @@
 import clsx from 'clsx'
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  IconGlobeOutline16,
   IconNewChatCircle24,
   IconSendOutline16,
   IconStopFill16,
   IconThinkOutline14,
+  IconToolOutline16,
 } from '../base/icons.js'
-import { setSearch, setThinking, useSettings } from '../../services/settings.js'
+import { setThinking, setToolsEnabled, useSettings } from '../../services/settings.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import {
@@ -34,7 +34,7 @@ import { Spectrum } from './Spectrum.js'
 import { useTranslate } from '../../i18n/index.js'
 import styles from './ChatInput.module.css'
 
-/** 输入框：自适应高度的文本框 + 文件 + 深度思考与智能搜索开关 + 语音输入 + 发送 / 停止 */
+/** 输入框：自适应高度的文本框 + 文件 + 深度思考与工具调用开关 + 语音输入 + 发送 / 停止 */
 export const ChatInput = memo(function ChatInput({ sessionId }: { sessionId: string | null }) {
   // 切换目标时释放录音、转写和 DOM 状态；文字与附件由草稿服务保留。
   return <Input key={sessionId === null ? 'new' : `session:${sessionId}`} sessionId={sessionId} />
@@ -52,13 +52,14 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const thinking = useSettings((state) => state.thinking)
   const importingHistory = useChatStore((state) => state.importingHistory)
   const isMobile = useIsMobile()
-  const search = useSettings((state) => state.search)
+  const toolsEnabled = useSettings((state) => state.toolsEnabled)
   const [toolsOpen, setToolsOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const albumInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const togglesRef = useRef<HTMLDivElement>(null)
+  const sendingRef = useRef(false)
 
   useLayoutEffect(() => {
     const toggles = togglesRef.current
@@ -136,7 +137,9 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const canSend = !importingHistory && !streaming && voice.status === 'idle' && draftReady
 
   const send = () => {
+    // 读取快照期间界面还没进入 streaming，用 ref 防止一次提交创建两个会话
     if (
+      sendingRef.current ||
       useChatStore.getState().importingHistory ||
       voice.status !== 'idle' ||
       !prepareDraftMessage(getDraft(sessionId), useUploads.getState().tasks)
@@ -144,7 +147,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       return
     }
     // 文本与上传完成态由提交动作读取最新快照，不使用上一次渲染的草稿。
-    if (!ensureApiKey() || !sendMessage(sessionId)) {
+    if (!ensureApiKey()) {
       return
     }
     stopReadAloud()
@@ -153,6 +156,11 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     } else {
       textareaRef.current?.focus()
     }
+    // 发送前要读取人格与记忆快照，失败时由发送流程提示
+    sendingRef.current = true
+    void sendMessage(sessionId).finally(() => {
+      sendingRef.current = false
+    })
   }
 
   return (
@@ -217,16 +225,16 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               <span className={styles.toggleLabel}>{t('thinkingSwitch')}</span>
             </button>
           </Tooltip>
-          <Tooltip content={t('deactivatedSearchTooltip')}>
+          <Tooltip content={t('toolCallsTooltip')}>
             <button
               type="button"
-              className={clsx(styles.toggle, search && styles.selected)}
-              aria-label={t('search')}
-              aria-pressed={search}
-              onClick={() => setSearch(!search)}
+              className={clsx(styles.toggle, toolsEnabled && styles.selected)}
+              aria-label={t('toolCalls')}
+              aria-pressed={toolsEnabled}
+              onClick={() => setToolsEnabled(!toolsEnabled)}
             >
-              <IconGlobeOutline16 />
-              <span className={styles.toggleLabel}>{t('search')}</span>
+              <IconToolOutline16 />
+              <span className={styles.toggleLabel}>{t('toolCalls')}</span>
             </button>
           </Tooltip>
         </div>

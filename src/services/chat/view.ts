@@ -7,7 +7,12 @@ import type {
   WebSearchResult,
   WebSearchToolResultBlock,
 } from '../api/types.js'
-import type { AssistantMessage, ThinkingPart } from './types.js'
+import type {
+  AssistantMessage,
+  ClientToolResultBlock,
+  ClientToolUseBlock,
+  ThinkingPart,
+} from './types.js'
 
 /**
  * 由回复的内容块推导界面需要的结构：思考与工具步骤的时间线、带引用角标的正文、可引用的来源列表。
@@ -67,7 +72,82 @@ export type ThinkingStep = { type: 'thinking'; key: string; blocks: ThinkingPart
 /** 工具调用前输出的说明文字 */
 export type PreambleStep = { type: 'text'; key: string; markdown: string }
 
-export type Step = SearchStep | OpenStep | FindStep | ReadLinkStep | ThinkingStep | PreambleStep
+export type ListStep = {
+  type: 'list'
+  key: string
+  status: ToolStatus
+  entries: { name: string; size: number; modifiedAt: number; isMemory: boolean }[]
+  truncated?: boolean
+  error?: string
+}
+
+export type ReadStep = {
+  type: 'read'
+  key: string
+  status: ToolStatus
+  file?: string
+  preview?: string
+  startLine?: number
+  totalLines?: number
+  error?: string
+}
+
+export type EditStep = {
+  type: 'edit'
+  key: string
+  status: ToolStatus
+  file?: string
+  replacements?: number
+  backupId?: string
+  oldString?: string
+  newString?: string
+  error?: string
+}
+
+/** 独立搜索接口（web_search）：查询与结果列表 */
+export type WebSearchStep = {
+  type: 'web_search'
+  key: string
+  status: ToolStatus
+  query?: string
+  results: { title: string; url: string; date: string | null }[]
+  truncated?: boolean
+  error?: string
+}
+
+/** 独立抓取接口（web_fetch）：页面标题、地址与正文预览 */
+export type WebFetchStep = {
+  type: 'web_fetch'
+  key: string
+  status: ToolStatus
+  url?: string
+  title?: string
+  preview?: string
+  truncated?: boolean
+  error?: string
+}
+
+/** 未声明或调用失败的工具：只展示可读错误 */
+export type ToolErrorStep = {
+  type: 'tool_error'
+  key: string
+  name: string
+  error: string
+}
+
+export type Step =
+  | SearchStep
+  | OpenStep
+  | FindStep
+  | ReadLinkStep
+  | ThinkingStep
+  | PreambleStep
+  | ListStep
+  | ReadStep
+  | EditStep
+  | WebSearchStep
+  | WebFetchStep
+  | ToolErrorStep
 
 export type ReplyView = {
   steps: Step[]
@@ -180,11 +260,114 @@ const joinTextBlocks = (
   return { markdown, text }
 }
 
+/** 客户端工具结果：有结果看是否报错，没有结果时流式中为进行中，结束后为失败 */
+const clientToolStatus = (
+  result: ClientToolResultBlock | undefined,
+  streaming: boolean
+): ToolStatus => {
+  if (!result) {
+    return streaming ? 'wip' : 'failed'
+  }
+  return result.isError || result.content.startsWith('Error: ') ? 'failed' : 'done'
+}
+
+const buildClientStep = (
+  block: ClientToolUseBlock,
+  result: ClientToolResultBlock | undefined,
+  streaming: boolean
+): Step => {
+  const status = clientToolStatus(result, streaming)
+  const display = result?.display ?? {}
+  const input = (block.input ?? {}) as Record<string, unknown>
+  const file =
+    typeof display.file === 'string'
+      ? display.file
+      : typeof input.file_path === 'string'
+        ? input.file_path
+        : undefined
+  const error =
+    status === 'failed'
+      ? (result?.content ?? 'Error: tool not enabled').replace(/^Error:\s*/, '')
+      : undefined
+  if (block.name === 'list') {
+    return {
+      type: 'list',
+      key: block.id,
+      status,
+      entries: display.entries ?? [],
+      truncated: display.truncated,
+      error,
+    }
+  }
+  if (block.name === 'read') {
+    return {
+      type: 'read',
+      key: block.id,
+      status,
+      file,
+      preview: display.preview,
+      startLine: display.startLine,
+      totalLines: display.totalLines,
+      error,
+    }
+  }
+  if (block.name === 'edit') {
+    return {
+      type: 'edit',
+      key: block.id,
+      status,
+      file,
+      replacements: display.replacements,
+      backupId: display.backupId,
+      oldString: display.oldString,
+      newString: display.newString,
+      error,
+    }
+  }
+  if (block.name === 'web_search') {
+    return {
+      type: 'web_search',
+      key: block.id,
+      status,
+      query:
+        typeof display.query === 'string'
+          ? display.query
+          : typeof input.query === 'string'
+            ? input.query
+            : undefined,
+      results: display.results ?? [],
+      truncated: display.truncated,
+      error,
+    }
+  }
+  if (block.name === 'web_fetch') {
+    return {
+      type: 'web_fetch',
+      key: block.id,
+      status,
+      url:
+        typeof display.url === 'string'
+          ? display.url
+          : typeof input.url === 'string'
+            ? input.url
+            : undefined,
+      title: display.title,
+      preview: display.preview,
+      truncated: display.truncated,
+      error,
+    }
+  }
+  return { type: 'tool_error', key: block.id, name: block.name, error: error ?? '' }
+}
+
 export const buildReplyView = (reply: AssistantMessage, streaming: boolean): ReplyView => {
   const results = new Map<string, WebSearchToolResultBlock | WebFetchToolResultBlock>()
+  const clientResults = new Map<string, ClientToolResultBlock>()
   for (const block of reply.blocks) {
     if (block.type === 'web_search_tool_result' || block.type === 'web_fetch_tool_result') {
       results.set(block.tool_use_id, block)
+    } else if (block.type === 'tool_result') {
+      clientResults.set(block.tool_use_id, block)
     }
   }
 
@@ -251,6 +434,12 @@ export const buildReplyView = (reply: AssistantMessage, streaming: boolean): Rep
         mergedThinking = { type: 'thinking', key: `thinking-${index}`, blocks: [block] }
         steps.push(mergedThinking)
       }
+      return
+    }
+    if (block.type === 'tool_use') {
+      // 客户端工具调用与结果按到达顺序进入时间线
+      flushPreamble()
+      steps.push(buildClientStep(block, clientResults.get(block.id), streaming))
       return
     }
     if (block.type !== 'server_tool_use') {

@@ -1,0 +1,232 @@
+/* 记忆工具卡片：列表 / 读取 / 编辑，沿用回复时间线的密度 */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ds-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--ds-text-tertiary);
+}
+
+.iconFailed {
+  color: var(--ds-danger, #e5484d);
+}
+
+.title {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--ds-text-secondary, var(--ds-text));
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--ds-text-tertiary) 0%,
+    var(--ds-text) 50%,
+    var(--ds-text-tertiary) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* 触屏上整行达到 44px，方便点开卡片 */
+@media (pointer: coarse) {
+  .header {
+    min-height: 44px;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.chevron {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--ds-text-tertiary);
+}
+
+.summary {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ds-text-tertiary);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 6px 26px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background-color: var(--ds-surface);
+  overflow: hidden;
+}
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ds-text);
+}
+
+.entryName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--ds-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+
+.entryMeta {
+  flex-shrink: 0;
+  color: var(--ds-text-tertiary);
+}
+
+.badge {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 999px;
+  background-color: var(--ds-brand);
+  color: #fff;
+  font-family: var(--ds-font-sans, system-ui, sans-serif);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.webResults {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.webResult {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.webLink {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ds-brand);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.webMeta {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ds-text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.pre {
+  margin: 0;
+  overflow-x: auto;
+  font-family: var(--ds-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ds-text);
+}
+
+.diff {
+  display: grid;
+  gap: 6px;
+}
+
+.diffLabel {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ds-text-tertiary);
+}
+
+.diffBlock {
+  margin: 0;
+  max-height: 220px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background-color: var(--ds-surface-high);
+  overflow: auto;
+  font-family: var(--ds-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.error {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ds-danger, #e5484d);
+  overflow-wrap: anywhere;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.undone {
+  font-size: 12px;
+  color: var(--ds-text-tertiary);
+}

@@ -8,7 +8,6 @@ import {
   setApiKey,
   setFontScale,
   setLocale,
-  setSearch,
   setThemePreference,
   setThinking,
   setTtsVoice,
@@ -17,6 +16,7 @@ import {
   type Locale,
   type ThemePreference,
 } from '../../services/settings.js'
+import { openPersonalization } from '../personalization/personalizationState.js'
 import type { TtsVoice } from '../../services/api/speech.js'
 import {
   IconChevronLeft20,
@@ -32,6 +32,7 @@ import {
   IconMoon20,
   IconSpeakerOn24,
   IconSparkles20,
+  IconThinkOutline16,
   IconTrash20,
   IconType20,
   IconUpload20,
@@ -105,7 +106,6 @@ const SettingsPageContent = () => {
   const fontScale = useSettings((state) => state.fontScale)
   const ttsVoice = useSettings((state) => state.ttsVoice)
   const thinking = useSettings((state) => state.thinking)
-  const search = useSettings((state) => state.search)
   const apiKey = useSettings((state) => state.apiKey)
   const apiKeyEditor = useApiKeyEditor()
   const historyImport = useHistoryImport()
@@ -185,9 +185,16 @@ const SettingsPageContent = () => {
               onClick={() => setSheet('font')}
             />
             <Row
+              id="settings-personalization-row"
               icon={<IconSparkles20 />}
               label={t('settingsPersonalization')}
-              onClick={() => setSheet('personalization')}
+              onClick={() => openPersonalization('general')}
+            />
+            <ToggleRow
+              icon={<IconThinkOutline16 />}
+              label={t('settingsThinkingDefault')}
+              checked={thinking}
+              onChange={() => setThinking(!thinking)}
             />
           </div>
         </section>
@@ -341,21 +348,6 @@ const SettingsPageContent = () => {
         />
       ) : null}
 
-      {sheet === 'personalization' ? (
-        <Sheet title={t('settingsPersonalization')} onClose={() => setSheet(null)}>
-          <SwitchRow
-            label={t('settingsThinkingDefault')}
-            checked={thinking}
-            onChange={() => setThinking(!thinking)}
-          />
-          <SwitchRow
-            label={t('settingsSearchDefault')}
-            checked={search}
-            onChange={() => setSearch(!search)}
-          />
-        </Sheet>
-      ) : null}
-
       {sheet === 'apiKey' ? (
         <Sheet title={t('settingsApiKey')} onClose={() => setSheet(null)}>
           <div className={styles.apiKeyBody}>
@@ -462,8 +454,35 @@ const SettingsPageContent = () => {
   )
 }
 
+/** 开关行：图标 + 标签 + 右侧开关，整行可点击 */
+const ToggleRow = ({
+  icon,
+  label,
+  checked,
+  onChange,
+}: {
+  icon: ReactNode
+  label: string
+  checked: boolean
+  onChange: () => void
+}) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={label}
+    className={styles.row}
+    onClick={onChange}
+  >
+    <span className={styles.rowIcon}>{icon}</span>
+    <span className={styles.rowLabel}>{label}</span>
+    <span className={clsx(styles.switch, checked && styles.switchOn)} aria-hidden />
+  </button>
+)
+
 /** 设置行：图标 + 标签 + 右侧值 + 箭头，官方卡片里的一行 */
 const Row = ({
+  id,
   icon,
   label,
   value,
@@ -472,6 +491,8 @@ const Row = ({
   chevron = true,
   disabled = false,
 }: {
+  /** 供焦点恢复等场景定位行 */
+  id?: string
   icon: ReactNode
   label: string
   value?: string
@@ -494,33 +515,16 @@ const Row = ({
   )
   const className = clsx(styles.row, danger && styles.danger)
   if (!onClick) {
-    return <div className={className}>{content}</div>
+    return (
+      <div id={id} className={className}>
+        {content}
+      </div>
+    )
   }
   return (
-    <button type="button" className={className} disabled={disabled} onClick={onClick}>
+    <button type="button" id={id} className={className} disabled={disabled} onClick={onClick}>
       {content}
     </button>
   )
 }
 
-/** 个性化面板里的开关行 */
-const SwitchRow = ({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string
-  checked: boolean
-  onChange: () => void
-}) => (
-  <button
-    type="button"
-    role="switch"
-    aria-checked={checked}
-    className={styles.sheetOption}
-    onClick={onChange}
-  >
-    <span>{label}</span>
-    <span className={clsx(styles.switch, checked && styles.switchOn)} aria-hidden />
-  </button>
-)

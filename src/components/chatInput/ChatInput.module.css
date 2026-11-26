@@ -329,7 +329,7 @@
 @media (max-width: 767px), (max-height: 520px) {
   .wrapper {
     flex-shrink: 0;
-    max-height: calc(var(--app-viewport-height, 100dvh) - 120px);
+    max-height: calc(var(--app-viewport-height, var(--app-viewport-fallback, 100dvh)) - 120px);
   }
 
   .textareaWrapper {

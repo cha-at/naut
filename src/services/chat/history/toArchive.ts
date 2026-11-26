@@ -181,6 +181,14 @@ const assistantFragments = (message: AssistantMessage): Fragment[] => {
   return fragments
 }
 
+/** 新回复按实际工具集判断是否声明过联网工具；旧回复没有 toolset 时沿用 search 字段 */
+const searchEnabled = (reply: AssistantMessage | undefined): boolean => {
+  if (!reply) {
+    return false
+  }
+  return reply.toolset ? reply.toolset.includes('search') : (reply.search ?? false)
+}
+
 const replyStatus = ({ status, stopReason }: AssistantMessage): ChatMessageStatus => {
   if (stopReason === 'refusal') {
     return 'CONTENT_FILTER'
@@ -248,7 +256,7 @@ export const toSessionFile = (original: Session, exportImage: ExportImage): Sess
       role: message.role === 'user' ? 'USER' : 'ASSISTANT',
       status: message.role === 'user' ? 'FINISHED' : replyStatus(message),
       thinking_enabled: reply?.thinking ?? false,
-      search_enabled: reply?.search ?? false,
+      search_enabled: searchEnabled(reply),
       accumulated_token_usage: message.role === 'user' ? 0 : contextTokens(message),
       inserted_at: iso(message.createdAt),
       fragments:

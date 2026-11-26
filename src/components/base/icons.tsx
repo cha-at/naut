@@ -64,6 +64,7 @@ import {
   Upload,
   Volume2,
   VolumeX,
+  Wrench,
   X,
 } from 'lucide-react'
 
@@ -123,6 +124,7 @@ export const IconRefreshOutline16 = icon(RotateCcw, 16)
 export const IconSendOutline16 = icon(ArrowUp, 16)
 export const IconSettingsOutline16 = icon(SettingsGlyph, 16)
 export const IconStopFill16 = icon(Square, 16)
+export const IconToolOutline16 = icon(Wrench, 16)
 export const IconThinkOutline14 = icon(Atom, 14)
 export const IconThinkOutline16 = icon(Atom, 16)
 export const IconTrashOutline16 = icon(Trash, 16)

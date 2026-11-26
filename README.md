@@ -10,6 +10,8 @@ There is no application backend: the app talks directly to the configured API se
 
 - Multiple conversations with automatic titles, renaming, deletion, prompt editing, regeneration, and message branches.
 - Streaming replies, deep thinking, web search, link reading, and source citations.
+- Personalization page with multiple personas (one active persona, snapshotted per conversation), per-tool switches, and memory file management.
+- Long-term memory: `USER.md` and `MEMORY.md` snapshots are injected into every new conversation; the model can list, read and edit memory files with client tools, and the latest model edit per file can be undone.
 - Attachments, voice input, and read-aloud replies. Markdown, syntax highlighting, KaTeX, and Mermaid.
 - Simplified Chinese and English, light/dark themes, mobile layouts, and history import/export.
 - Mobile-first shell behavior: safe-area layout, keyboard-aware input, touch-sized controls, Android hardware back handling, in-app image preview, and native file save dialogs.
@@ -60,10 +62,19 @@ On Windows ARM64, if the host C++ step fails with MSVC error **D8050**, set **$e
 
 - **Safe areas:** the viewport uses **viewport-fit=cover** and the layout consumes **env(safe-area-inset-*)**. Android edge-to-edge therefore keeps the header below the status bar and the input above the navigation bar. Modern Android System WebView (Chromium 140+) is recommended for reliable inset values.
 - **Keyboard:** the frame follows **visualViewport**, and the bottom safe area collapses while an input is focused.
-- **Back button:** Android back closes the image viewer, menus/selects, modals, the search panel, and the side drawer in that order. At the root it stops active replies and exits.
+- **Back button:** Android back closes the image viewer, menus/selects, modals, the personalization page (sub-pages first), the search panel, settings, and the side drawer in that order. At the root it stops active replies and exits.
 - **Files:** history import/export and attachment saving use native dialogs. Picked archives are copied into the app sandbox before validation. Images open in an in-app full-screen preview.
 - **External links:** links are validated and opened in the system browser. Top-level navigation away from the app is blocked in Rust.
-- **Storage:** the API key and settings stay in app-private localStorage; conversations and original attachments stay in IndexedDB. Android system backup is disabled. Use history export/import to move data between the web and native builds, because they have different origins.
+- **Storage:** the API key, settings and personas stay in app-private localStorage; conversations and original attachments stay in IndexedDB. Memory files live in `~/.naut` on Windows and in the app-specific external directory on Android; the web build stores two fixed documents in the `naut-memory` IndexedDB database. Android system backup is disabled. Use history export/import to move conversations between builds, and the persona/memory backup controls to move personas and memory, because the web and native builds have different origins.
+
+## Personalization, memory and tools
+
+- **Personas:** the personalization page keeps several personas (name + instructions). One persona is active; a new conversation snapshots the active persona and both memory files, and keeps that snapshot for its lifetime. Editing or deleting a persona does not change existing conversations.
+- **Tools:** the composer's tool button is the master switch for all tools. The personalization page has three switches: read memory (also enables the file list tool), edit memory, and smart search. All requests omit `safety_check`; server-side content checks still apply.
+- **Web search vs. memory tools:** the tested API rejects combining memory tools with built-in web search. When that happens the app keeps both capabilities by switching web search to two client tools, `web_search` and `web_fetch`, which call the standalone `POST /v1/tools/search` and `POST /v1/tools/fetch` endpoints with the same API key. The incompatibility is recorded per API origin and the fallback is explained in Personalization (successful searches and fetches are billed separately, $0.75 per 1,000 requests each; failed or empty requests are not billed). **Retry built-in web tools** clears the marker if the API later supports the combination. Search queries and fetched URLs are sent to DeepSeek's search service.
+- **Memory directory:** the native build manages a flat directory of UTF-8 text files (create `.md` files, rename, delete, edit, copy the path). `USER.md` and `MEMORY.md` cannot be renamed or deleted and are always injected as snapshots (16 KiB each). The web build exposes only those two documents.
+- **Model edits:** the model calls `list`, `read` and `edit`. Edits are literal replacements (`old_string` must be unique unless `replace_all` is set), limited to 64 KiB per file, and applied atomically with one undo slot per file. A file other than the two memory files must be read in the same reply before it can be edited.
+- **Limits:** 200 files per directory, 64 KiB per file, 2,000 lines or 32 KiB per `read` result, and 12 tool execution rounds per reply.
 
 ## Project layout
 
@@ -92,6 +103,7 @@ The API origin defaults to **https://api.deepseek.com** and is injected by **cre
 | **pnpm build** | Static build into dist/ |
 | **pnpm type** | TypeScript type check |
 | **pnpm lint** | oxlint |
+| **pnpm test** | Vitest unit and component tests |
 | **pnpm format** | oxfmt |
 | **pnpm tauri dev** | Desktop app with HMR |
 | **pnpm tauri build** | Windows installer |
@@ -106,6 +118,8 @@ The API origin defaults to **https://api.deepseek.com** and is injected by **cre
 - System bar icon contrast follows the system theme; forcing the app theme opposite to the system may reduce contrast.
 - Large ZIP imports are read into memory before validation.
 - The API key is stored unencrypted in app-private storage.
+- The model can edit memory files directly; only the latest model edit per file can be undone, and clearing site data removes web memory.
+- On Android the external memory directory may not be visible to every third-party file manager.
 - The Android debug APK uses the same application id as a future release build; keep signing keys safe before publishing.
 
 ## License

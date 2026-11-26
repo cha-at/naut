@@ -17,6 +17,7 @@ import { Welcome } from '../components/session/Welcome.js'
 import { ensureApiKey } from '../components/settings/settingsDialogState.js'
 import { SettingsDialog } from '../components/settings/SettingsDialog.js'
 import { SettingsPage } from '../components/settings/SettingsPage.js'
+import { PersonalizationPage } from '../components/personalization/PersonalizationPage.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
 import { onUploadNotice } from '../services/attachments.js'
@@ -146,6 +147,7 @@ export const App = () => {
         {isMobile ? <SettingsPage /> : null}
       </div>
       <SettingsDialog />
+      <PersonalizationPage />
       <ImageViewer />
       <Toast />
     </>
