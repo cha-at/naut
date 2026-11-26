@@ -1,4 +1,4 @@
-# pnpm 11 读取工作区级设置；这台 Windows ARM64 机器上的 Node 与 pnpm 架构不一致，
+# pnpm 11 读取工作区级设置；ARM64 机器上的 Node 与 pnpm 架构可能会不一致，
 # 同时安装 arm64/x64 可选二进制，保证 tsc、Tauri CLI 和 rspack 都能启动。
 supportedArchitectures:
   os:
