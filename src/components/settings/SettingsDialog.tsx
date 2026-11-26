@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   IconDarkOutline16,
   IconDataOutline16,
@@ -10,12 +10,6 @@ import {
   IconSettingsOutline16,
   IconUploadOutline14,
 } from '../base/icons.js'
-import {
-  BackupError,
-  clearHistory,
-  exportHistory,
-  importHistory,
-} from '../../services/chat/backup.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { useChatStore } from '../../services/chat/store.js'
 import { regionCodes, getRegionName, provinces } from '../../services/location.js'
@@ -28,14 +22,20 @@ import {
   useSettings,
   type ThemePreference,
 } from '../../services/settings.js'
-import { pickArchiveFile, saveBlobFile } from '../../platform/files.js'
-import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
+import { pickArchiveFile } from '../../platform/files.js'
+import { useTranslate, type TranslationKey } from '../../i18n/index.js'
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import { showToast } from '../base/toastState.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
 import { closeSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
+import {
+  useHistoryDelete,
+  useHistoryExport,
+  useHistoryImport,
+  type Status,
+} from './useDataSettings.js'
 import styles from './Settings.module.css'
 
 /**
@@ -44,8 +44,10 @@ import styles from './Settings.module.css'
  */
 export const SettingsDialog = () => {
   const open = useSettingsDialog((state) => state.open)
+  const isMobile = useIsMobile()
   const historyImport = useHistoryImport()
-  return open ? <SettingsContent historyImport={historyImport} /> : null
+  // 移动端用全屏设置页（SettingsPage），桌面端保留弹窗
+  return open && !isMobile ? <SettingsContent historyImport={historyImport} /> : null
 }
 
 const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode }[] = [
@@ -174,42 +176,6 @@ const DeleteAllConfirm = ({
       {t('deleteAllSessionsModalDescription')}
     </Modal>
   )
-}
-
-const useHistoryDelete = () => {
-  const [opened, setOpened] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const deleting = useRef(false)
-
-  const confirm = async () => {
-    if (deleting.current) {
-      return
-    }
-    deleting.current = true
-    setBusy(true)
-    try {
-      await clearHistory()
-      setOpened(false)
-      showToast({ key: 'historyDeleted' })
-    } catch {
-      showToast({ key: 'historyDeleteFailed', type: 'error' })
-    } finally {
-      deleting.current = false
-      setBusy(false)
-    }
-  }
-
-  return {
-    opened,
-    busy,
-    open: () => setOpened(true),
-    cancel: () => {
-      if (!deleting.current) {
-        setOpened(false)
-      }
-    },
-    confirm,
-  }
 }
 
 const LocationSetting = () => {
@@ -400,18 +366,6 @@ const ThemeSetting = () => {
   )
 }
 
-/** `reason` 为失败原因的文案 key，展示时按当前语言翻译后填入 `message` 参数。 */
-type Status = (TranslationMessage & { error?: boolean; reason?: TranslationKey }) | null
-
-/** 导出失败附带原因：预期的错误用对应文案作原因，其他错误用错误信息。 */
-const errorStatus = (key: TranslationKey, error: unknown): Status => ({
-  key,
-  ...(error instanceof BackupError
-    ? { reason: error.key }
-    : { params: { message: error instanceof Error ? error.message : String(error) } }),
-  error: true,
-})
-
 const SettingCell = ({
   label,
   description,
@@ -441,49 +395,6 @@ const SettingCell = ({
       {action}
     </div>
   )
-}
-
-/** 选文件后先提示覆盖；确认后才检查文件并执行导入，任何错误都提示导入失败。 */
-const useHistoryImport = () => {
-  const [file, setFile] = useState<File | null>(null)
-  const [progress, setProgress] = useState<{ processed: number; total?: number } | null>(null)
-  const [status, setStatus] = useState<Status>(null)
-  const importing = useRef(false)
-
-  const confirm = async () => {
-    if (!file || importing.current) {
-      return
-    }
-    importing.current = true
-    setFile(null)
-    setProgress({ processed: 0 })
-    setStatus(null)
-    try {
-      const count = await importHistory(file, (processed, total) =>
-        setProgress({ processed, total })
-      )
-      setStatus({ key: count === 1 ? 'historyImportedOne' : 'historyImported', params: { count } })
-    } catch {
-      setStatus({ key: 'historyImportFailed', error: true })
-    } finally {
-      importing.current = false
-      setProgress(null)
-    }
-  }
-
-  return {
-    file,
-    busy: progress !== null,
-    progress,
-    status,
-    select: setFile,
-    cancel: () => setFile(null),
-    dismiss: () => {
-      setFile(null)
-      setStatus(null)
-    },
-    confirm,
-  }
 }
 
 /** 导入 = 覆盖：用选中文件替换本地全部会话与附件。 */
@@ -564,39 +475,20 @@ const ImportHistory = ({
 const ExportHistory = ({ disabled }: { disabled: boolean }) => {
   const t = useTranslate()
   const empty = useChatStore((state) => state.sessions.length === 0)
-  const [busy, setBusy] = useState(false)
-  const [status, setStatus] = useState<Status>(null)
-
-  const onExport = async () => {
-    setBusy(true)
-    setStatus(null)
-    try {
-      const { name, blob } = await exportHistory()
-      const result = await saveBlobFile(blob, name, 'archive')
-      if (result.status === 'saved') {
-        setStatus({ key: 'historyExportSaved' })
-      } else if (result.status === 'failed') {
-        setStatus(errorStatus('historyExportFailed', result.error ?? new Error('save failed')))
-      }
-    } catch (error) {
-      setStatus(errorStatus('historyExportFailed', error))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const historyExport = useHistoryExport()
 
   return (
     <SettingCell
       label={t('exportAllLabel')}
       description={t('historyExportDescription')}
-      status={status}
+      status={historyExport.status}
       action={
         <Button
           variant="outlined"
           size="m"
           className={styles.cellButton}
-          disabled={disabled || busy || empty}
-          onClick={() => void onExport()}
+          disabled={disabled || historyExport.busy || empty}
+          onClick={() => void historyExport.run()}
         >
           <IconDownloadOutline16 />
           {t('exportAllDownload')}

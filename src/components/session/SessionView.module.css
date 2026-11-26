@@ -67,4 +67,14 @@
     margin: 0 auto;
     padding-bottom: var(--app-safe-bottom, 0px);
   }
+
+  /* 官方输入区：整块贴着页面底边，左右只留 8px */
+  .composer {
+    position: relative;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    padding: 0 calc(8px + var(--app-safe-right, 0px)) calc(8px + var(--app-safe-bottom, 0px))
+      calc(8px + var(--app-safe-left, 0px));
+    background-color: var(--ds-page);
+  }
 }

@@ -36,34 +36,37 @@
   }
 }
 
-@media (max-width: 767px), (max-height: 520px) {
-  .container {
-    flex-direction: column;
-  }
+/* 移动端：顶栏 + 居中的品牌标记 + 吸底输入框（官方空会话态） */
+.view {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--ds-page);
+}
 
-  .welcome {
-    flex: 1;
-    min-height: 0;
-    justify-content: flex-end;
-    max-width: none;
-    margin: 0;
-    padding: 0 calc(16px + var(--app-safe-right, 0px)) var(--app-safe-bottom, 0px)
-      calc(16px + var(--app-safe-left, 0px));
-  }
+.hero {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  min-height: 0;
+  padding: 0 32px 40px;
+}
 
-  .greeting {
-    flex-shrink: 0;
-    margin: auto 0;
-  }
+.view .greeting {
+  margin: 0;
+  font: var(--ds-type-title-large);
+  font-weight: 600;
+  color: var(--ds-text);
+}
 
-  .caveat {
-    flex-shrink: 0;
-    width: 100%;
-    padding: 6px 0;
-    font-size: 11px;
-    line-height: 16px;
-    text-align: center;
-    color: var(--dsw-alias-label-tertiary);
-    user-select: none;
-  }
+.composer {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 0 calc(8px + var(--app-safe-right, 0px)) calc(8px + var(--app-safe-bottom, 0px))
+    calc(8px + var(--app-safe-left, 0px));
+  background-color: var(--ds-page);
 }

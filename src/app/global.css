@@ -48,6 +48,17 @@ body[data-ds-dark-theme] {
   --scroll-color-hover: rgba(255, 255, 255, 0.24);
 }
 
+/* 加载中的图标用旋转表达进行态（lucide 的 LoaderCircle 自带缺口圆弧） */
+.ds-icon-spin {
+  animation: ds-icon-spin 0.9s linear infinite;
+}
+
+@keyframes ds-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 body.change-theme *,
 body.change-theme *::before,
 body.change-theme *::after {

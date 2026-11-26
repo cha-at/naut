@@ -1,0 +1,116 @@
+/**
+ * DeepSeek 官方 App（2.9.0）的设计令牌。
+ *
+ * 色值来源：`F:\decomps\docs\ui-design.md` §3.2 的实测常量，以及 `F:\decomps\screenshots`
+ * 四张截图的像素采样（1080×2392，按 3x 换算）。排版与圆角直接采用 Material3 默认 scale，
+ * 官方没有自定义字体族，也没有自定义 Shapes。
+ *
+ * 组件只消费这一层和 theme.css 里的 `--dsw-*` 别名；不要再往组件里写死色值。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 品牌与状态 */
+  --ds-brand: #426efe;
+  --ds-brand-pressed: #2955be;
+  --ds-brand-soft: #f4f9ff;
+  --ds-accent: #ffc67b;
+  --ds-warning: #f59e0b;
+  --ds-error: #ff6565;
+  --ds-error-strong: #ff4d4d;
+  --ds-wechat: #07c160;
+
+  /* 面：聊天页 / 设置页 / 抽屉 / 输入容器 / 高容器 */
+  --ds-page: #ffffff;
+  --ds-settings-page: #f5f5f5;
+  --ds-sidebar: #f5f5f5;
+  --ds-surface: #f8f8f8;
+  --ds-surface-input: #f5f5f5;
+  --ds-surface-high: #ededed;
+  --ds-menu: #ffffff;
+  --ds-bubble-user: #f4f9ff;
+  --ds-chip-selected-bg: #e0edff;
+  --ds-chip-selected-border: #cfe1ff;
+  --ds-overlay: rgba(0, 0, 0, 0.32);
+  --ds-toast: #35353a;
+  --ds-tooltip: #35353a;
+
+  /* 文字 */
+  --ds-text: #101114;
+  --ds-text-body: #16181c;
+  --ds-text-secondary: #61666b;
+  --ds-text-tertiary: #8a8f94;
+  --ds-text-on-brand: #ffffff;
+
+  /* 线 */
+  --ds-border: rgba(0, 0, 0, 0.08);
+  --ds-border-subtle: rgba(0, 0, 0, 0.04);
+  --ds-border-strong: rgba(0, 0, 0, 0.14);
+
+  /* 阴影 */
+  --ds-shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --ds-shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.16);
+
+  /* 移动端节奏 */
+  --ds-topbar-height: 56px;
+  --ds-touch: 44px;
+  --ds-gutter: 16px;
+  --ds-ease: cubic-bezier(0.2, 0, 0, 1);
+  --ds-duration: 200ms;
+  --ds-ui-scale: 1;
+
+  /* Material3 字号（官方用默认 Typography） */
+  --ds-type-title-large: 600 22px/28px var(--dsw-font-family);
+  --ds-type-title-medium: 600 16px/24px var(--dsw-font-family);
+  --ds-type-title-small: 600 14px/20px var(--dsw-font-family);
+  --ds-type-body-large: 400 16px/24px var(--dsw-font-family);
+  --ds-type-body-medium: 400 14px/20px var(--dsw-font-family);
+  --ds-type-body-small: 400 12px/16px var(--dsw-font-family);
+  --ds-type-label-large: 500 14px/20px var(--dsw-font-family);
+  --ds-type-label-medium: 500 12px/16px var(--dsw-font-family);
+  --ds-type-label-small: 500 11px/16px var(--dsw-font-family);
+
+  /* Material3 形状 */
+  --ds-shape-xs: 4px;
+  --ds-shape-s: 8px;
+  --ds-shape-m: 12px;
+  --ds-shape-l: 16px;
+  --ds-shape-xl: 28px;
+  --ds-shape-full: 999px;
+}
+
+body[data-ds-dark-theme] {
+  color-scheme: dark;
+  --ds-brand: #6799fe;
+  --ds-brand-pressed: #4e77ff;
+  --ds-brand-soft: #181a23;
+  --ds-accent: #ffc67b;
+
+  --ds-page: #0f0f0f;
+  --ds-settings-page: #1e1e1e;
+  --ds-sidebar: #141414;
+  --ds-surface: #292929;
+  --ds-surface-input: #242424;
+  --ds-surface-high: #3c3c3d;
+  --ds-menu: #3c3c3d;
+  --ds-bubble-user: #333333;
+  --ds-chip-selected-bg: #283142;
+  --ds-chip-selected-border: #6799fe;
+  --ds-overlay: rgba(0, 0, 0, 0.5);
+  --ds-toast: #3c3c3d;
+  --ds-tooltip: #3c3c3d;
+
+  --ds-text: #f8f8f8;
+  --ds-text-body: #e1e2ec;
+  --ds-text-secondary: #b9babb;
+  --ds-text-tertiary: #8e9094;
+  --ds-text-on-brand: #ffffff;
+
+  --ds-border: rgba(255, 255, 255, 0.1);
+  --ds-border-subtle: rgba(255, 255, 255, 0.06);
+  --ds-border-strong: rgba(255, 255, 255, 0.16);
+
+  --ds-shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --ds-shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.5);
+}

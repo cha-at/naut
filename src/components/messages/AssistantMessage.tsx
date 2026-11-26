@@ -1,11 +1,12 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
-import { memo } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { IconRefreshOutline16, IconWarningOutline16 } from '../base/icons.js'
 import { describeReply } from '../../services/chat/describe.js'
 import { canContinueReply } from '../../services/chat/reply.js'
 import { continueReply, regenerateReply } from '../../services/chat/store.js'
-import { stopReadAloud } from '../../services/speech/readAloud.js'
+import { autoReadAloud, stopReadAloud } from '../../services/speech/readAloud.js'
+import { useSettings } from '../../services/settings.js'
 import type { AssistantMessage as AssistantMessageType } from '../../services/chat/types.js'
 import { openSettings } from '../settings/settingsDialogState.js'
 import { IconButton } from '../base/IconButton.js'
@@ -46,6 +47,8 @@ export const AssistantMessage = memo(function AssistantMessage({
   const t = useTranslate()
   const view = useReplyView(message, streaming)
   const panelEntry = useSearchPanel((state) => state.entry)
+  const ttsAuto = useSettings((state) => state.ttsAuto)
+  const autoReadIds = useRef(new Set<string>())
   const notice = streaming ? null : describeReply(message)
   // 安全拒绝：已下发的思考与正文按协议丢弃，只显示模板答复。
   const refused = message.stopReason === 'refusal'
@@ -56,6 +59,18 @@ export const AssistantMessage = memo(function AssistantMessage({
   const copyText = responseText || notice?.text
   const waiting = streaming && view.steps.length === 0 && !view.answer && !message.thinking
   const summaryEntry = `${message.id}-summary`
+
+  // 顶栏喇叭开启时，回答完成自动朗读一次；失败静默，不影响手动朗读
+  useEffect(() => {
+    if (!ttsAuto || streaming || refused || message.status !== 'done' || !responseText) {
+      return
+    }
+    if (autoReadIds.current.has(message.id)) {
+      return
+    }
+    autoReadIds.current.add(message.id)
+    autoReadAloud(message.id, responseText)
+  }, [ttsAuto, streaming, refused, message.status, message.id, responseText])
   return (
     <div className={styles.message}>
       {refused ? null : (

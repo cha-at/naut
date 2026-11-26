@@ -1,0 +1,51 @@
+.bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  height: calc(var(--ds-topbar-height) + var(--app-safe-top, 0px));
+  padding: var(--app-safe-top, 0px) 6px 0;
+  background-color: var(--ds-page);
+}
+
+/* 标题绝对定位居中，不参与两侧按钮的宽度分配 */
+.title {
+  position: absolute;
+  top: var(--app-safe-top, 0px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  height: var(--ds-topbar-height);
+  max-width: calc(100% - 156px);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.titleText {
+  overflow: hidden;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  color: var(--ds-text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transform-origin: center;
+  transition:
+    transform var(--ds-duration) var(--ds-ease),
+    opacity var(--ds-duration) var(--ds-ease);
+}
+
+/* 列表滚离顶部后标题收缩变淡，对应官方标题与副标题的联动动画 */
+.compact .titleText {
+  opacity: 0.72;
+  transform: scale(0.84);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  color: var(--ds-text);
+}

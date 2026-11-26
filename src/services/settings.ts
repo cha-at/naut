@@ -7,6 +7,11 @@ export type Locale = 'zh-CN' | 'en-US'
 /** 主题偏好；默认跟随系统 */
 export type ThemePreference = 'light' | 'dark' | 'system'
 
+/** 界面字号倍率，对应设置页的「字体大小」；Web 侧施加在外壳上做整体缩放 */
+export type FontScale = 0.9 | 1 | 1.15 | 1.3
+
+export const FONT_SCALES: readonly FontScale[] = [0.9, 1, 1.15, 1.3]
+
 /** 本机设置，存 localStorage：API Key、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态 */
 type Settings = {
   apiKey: string | null
@@ -17,6 +22,9 @@ type Settings = {
   thinking: boolean
   search: boolean
   siderCollapsed: boolean
+  fontScale: FontScale
+  /** 回答结束后自动朗读；官方顶栏的喇叭开关 */
+  ttsAuto: boolean
 }
 
 const KEYS = {
@@ -28,6 +36,8 @@ const KEYS = {
   thinking: 'chat-demo:thinking',
   search: 'chat-demo:search',
   siderCollapsed: 'chat-demo:sider-collapsed',
+  fontScale: 'chat-demo:font-scale',
+  ttsAuto: 'chat-demo:tts-auto',
 } as const
 
 const read = (key: string) => {
@@ -87,6 +97,12 @@ const initialThemePreference = (): ThemePreference => {
 /** 未保存过时使用服务端默认音色 stella（海星） */
 const initialTtsVoice = (): TtsVoice => (read(KEYS.ttsVoice) === 'tide' ? 'tide' : 'stella')
 
+/** 未保存过时使用默认字号 */
+const initialFontScale = (): FontScale => {
+  const saved = Number(read(KEYS.fontScale))
+  return FONT_SCALES.find((scale) => scale === saved) ?? 1
+}
+
 export const useSettings = create<Settings>(() => ({
   apiKey: read(KEYS.apiKey),
   locale: initialLocale(),
@@ -96,6 +112,8 @@ export const useSettings = create<Settings>(() => ({
   thinking: read(KEYS.thinking) === 'true',
   search: read(KEYS.search) === 'true',
   siderCollapsed: read(KEYS.siderCollapsed) === 'true',
+  fontScale: initialFontScale(),
+  ttsAuto: read(KEYS.ttsAuto) === 'true',
 }))
 
 export const setLocale = (locale: Locale) => {
@@ -137,4 +155,14 @@ export const setSearch = (search: boolean) => {
 export const setSiderCollapsed = (siderCollapsed: boolean) => {
   write(KEYS.siderCollapsed, String(siderCollapsed))
   useSettings.setState({ siderCollapsed })
+}
+
+export const setFontScale = (fontScale: FontScale) => {
+  write(KEYS.fontScale, String(fontScale))
+  useSettings.setState({ fontScale })
+}
+
+export const setTtsAuto = (ttsAuto: boolean) => {
+  write(KEYS.ttsAuto, String(ttsAuto))
+  useSettings.setState({ ttsAuto })
 }

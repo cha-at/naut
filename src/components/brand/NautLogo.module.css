@@ -1,0 +1,25 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--ds-brand);
+}
+
+.svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* 圆形底 + 内缩标记：抽屉底部的账户头像（用百分比缩标记，避免 padding 百分比按容器宽度计算） */
+.badge {
+  box-sizing: border-box;
+  border-radius: 50%;
+  background-color: var(--ds-surface-high);
+  color: var(--ds-brand);
+}
+
+.badge .svg {
+  width: 62%;
+  height: 62%;
+}

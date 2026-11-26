@@ -1,0 +1,28 @@
+.button {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 50%;
+  background-color: var(--ds-surface);
+  color: var(--ds-text);
+  box-shadow: var(--ds-shadow-menu);
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition:
+    opacity var(--ds-duration) var(--ds-ease),
+    transform var(--ds-duration) var(--ds-ease);
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(6px);
+}

@@ -1,8 +1,8 @@
 import clsx from 'clsx'
-import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
-  IconGlobeLanguageOutline14,
-  IconPaperclipOutline16,
+  IconGlobeOutline16,
+  IconNewChatCircle24,
   IconSendOutline16,
   IconStopFill16,
   IconThinkOutline14,
@@ -21,13 +21,13 @@ import {
   useDrafts,
 } from '../../services/chat/drafts.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
-import { IconButton } from '../base/IconButton.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
 import { DragMask, useFileDrop } from './DragMask.js'
 import { showToast } from '../base/toastState.js'
 import { ACCEPT, useUploads } from '../../services/attachments.js'
 import { DraftAttachments } from './DraftAttachments.js'
+import { InputToolSheet } from './InputToolSheet.js'
 import { useVoiceInput } from './useVoiceInput.js'
 import { VoiceButton } from './VoiceButton.js'
 import { Spectrum } from './Spectrum.js'
@@ -53,7 +53,10 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const importingHistory = useChatStore((state) => state.importingHistory)
   const isMobile = useIsMobile()
   const search = useSettings((state) => state.search)
+  const [toolsOpen, setToolsOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const albumInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const togglesRef = useRef<HTMLDivElement>(null)
 
@@ -166,7 +169,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         <textarea
           ref={textareaRef}
           className={clsx(styles.textarea, recording && isMobile && styles.textareaHidden)}
-          placeholder={t('chatInputPlaceholderChat')}
+          placeholder={t(isMobile ? 'chatInputPlaceholderMobile' : 'chatInputPlaceholderChat')}
           rows={2}
           // 移动端不自动聚焦，避免一打开就弹出键盘
           autoFocus={!isMobile}
@@ -222,7 +225,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               aria-pressed={search}
               onClick={() => setSearch(!search)}
             >
-              <IconGlobeLanguageOutline14 />
+              <IconGlobeOutline16 />
               <span className={styles.toggleLabel}>{t('search')}</span>
             </button>
           </Tooltip>
@@ -241,20 +244,43 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               }
             }}
           />
-          <IconButton
-            size="m"
-            tone="primary"
-            icon={<IconPaperclipOutline16 />}
-            tooltip={t('uploadFile')}
+          <button
+            type="button"
+            className={styles.toolButton}
+            aria-label={t('openInputTools')}
             disabled={importingHistory}
-            onClick={() => ensureApiKey() && fileInputRef.current?.click()}
-          />
+            onClick={() => ensureApiKey() && setToolsOpen(true)}
+          >
+            <IconNewChatCircle24 />
+          </button>
           <input
             ref={fileInputRef}
             type="file"
             multiple
             hidden
             accept={ACCEPT}
+            onChange={(event) => {
+              acceptFiles(Array.from(event.target.files ?? []))
+              event.target.value = ''
+            }}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            hidden
+            accept="image/*"
+            capture="environment"
+            onChange={(event) => {
+              acceptFiles(Array.from(event.target.files ?? []))
+              event.target.value = ''
+            }}
+          />
+          <input
+            ref={albumInputRef}
+            type="file"
+            hidden
+            multiple
+            accept="image/*"
             onChange={(event) => {
               acceptFiles(Array.from(event.target.files ?? []))
               event.target.value = ''
@@ -272,7 +298,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             >
               <IconStopFill16 />
             </button>
-          ) : (
+          ) : draft.text.trim() || attachments.length > 0 || recording ? (
             <button
               type="button"
               className={clsx(styles.sendButton, !canSend && styles.disabled)}
@@ -282,9 +308,20 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             >
               <IconSendOutline16 />
             </button>
-          )}
+          ) : null}
         </div>
       </div>
+      {toolsOpen ? (
+        <InputToolSheet
+          onClose={() => setToolsOpen(false)}
+          onPick={(kind) => {
+            setToolsOpen(false)
+            const target =
+              kind === 'file' ? fileInputRef : kind === 'camera' ? cameraInputRef : albumInputRef
+            requestAnimationFrame(() => target.current?.click())
+          }}
+        />
+      ) : null}
       {dragging ? <DragMask /> : null}
     </div>
   )

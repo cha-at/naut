@@ -12,10 +12,11 @@ import {
 import { SearchPanel } from '../components/search/SearchPanel.js'
 import { closeSearchPanel } from '../components/search/searchPanelState.js'
 import { SessionView } from '../components/session/SessionView.js'
-import { MobileHeader } from '../components/session/MobileHeader.js'
+import { TopBar } from '../components/session/TopBar.js'
 import { Welcome } from '../components/session/Welcome.js'
 import { ensureApiKey } from '../components/settings/settingsDialogState.js'
 import { SettingsDialog } from '../components/settings/SettingsDialog.js'
+import { SettingsPage } from '../components/settings/SettingsPage.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
 import { onUploadNotice } from '../services/attachments.js'
@@ -28,7 +29,8 @@ import { Button } from '../components/base/Button.js'
 import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
 import { closeMobileSider } from '../components/sider/mobileSiderState.js'
-import { MobileSider, Sider } from '../components/sider/Sider.js'
+import { Drawer } from '../components/sider/Drawer.js'
+import { Sider } from '../components/sider/Sider.js'
 import styles from './App.module.css'
 
 export const App = () => {
@@ -86,7 +88,7 @@ export const App = () => {
   return (
     <>
       <div ref={frameRef} className={styles.frame}>
-        {isMobile ? <MobileSider /> : siderCollapsed ? null : <Sider />}
+        {isMobile ? <Drawer /> : siderCollapsed ? null : <Sider />}
         <main className={styles.main}>
           {saveError ? (
             <div className={styles.saveError} role="alert">
@@ -105,7 +107,7 @@ export const App = () => {
             {siderCollapsed ? <CollapsedSider /> : null}
             {!ready || (activeId !== null && !session) ? (
               <div className={styles.loadingView}>
-                {isMobile ? <MobileHeader /> : null}
+                {isMobile ? <TopBar /> : null}
                 <div className={styles.loadingState} role="status" aria-live="polite">
                   <span>
                     {(!ready ? initError : sessionLoadError)
@@ -141,6 +143,7 @@ export const App = () => {
           </div>
         </main>
         <SearchPanel />
+        {isMobile ? <SettingsPage /> : null}
       </div>
       <SettingsDialog />
       <ImageViewer />

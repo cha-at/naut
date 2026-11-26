@@ -57,7 +57,12 @@
     position: fixed;
     top: var(--app-viewport-top, 0px);
     bottom: auto;
-    height: var(--app-viewport-height, 100dvh);
+    /* 字号倍率：外壳整体缩放，并反算宽高让缩放后仍铺满视口 */
+    right: auto;
+    width: calc(100% / var(--ds-ui-scale, 1));
+    height: calc(var(--app-viewport-height, 100dvh) / var(--ds-ui-scale, 1));
+    transform: scale(var(--ds-ui-scale, 1));
+    transform-origin: top left;
   }
 
   @supports not (height: 100dvh) {

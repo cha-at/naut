@@ -16,8 +16,8 @@
   }
 
   .button {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
   }
 }
 
@@ -70,7 +70,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background-color: var(--dsw-alias-brand-primary);
+  background-color: var(--ds-brand);
   opacity: 0.2;
   animation:
     haloEnter 0.15s ease-out both,
@@ -81,7 +81,7 @@
   position: absolute;
   inset: 2px;
   border-radius: 50%;
-  background-color: var(--dsw-alias-brand-primary);
+  background-color: var(--ds-brand);
   opacity: 0.75;
   animation: coreEnter 0.2s ease-out 0.14s both;
 }
@@ -89,14 +89,14 @@
 .outline {
   position: absolute;
   display: flex;
-  color: var(--dsw-alias-brand-primary);
+  color: var(--ds-brand);
   animation: fadeOut 0.12s ease-out 0.14s both;
 }
 
 .glyph {
   position: relative;
   display: flex;
-  color: var(--dsw-static-neutral-bluish-00);
+  color: var(--ds-text-on-brand);
   animation: fadeIn 0.1s ease-out 0.26s both;
 }
 
@@ -179,7 +179,7 @@
 @media (max-width: 767px), (max-height: 520px) {
   /* 放在文件末尾，覆盖基础 34px 尺寸。 */
   .button {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
   }
 }

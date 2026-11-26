@@ -14,22 +14,25 @@ export type MenuOption = {
 }
 
 /**
- * 点击触发：桌面端向下展开锚定菜单，移动端从底部弹出操作表。
+ * 点击触发：桌面端向下展开锚定菜单，移动端默认从底部弹出操作表（`popup` 则保留锚定菜单）。
  * 点外部、遮罩或 Esc 关闭。
  */
 export const Menu = ({
   options,
   children,
+  variant = 'auto',
 }: {
   options: MenuOption[]
   children: (props: { open: boolean; toggle: () => void }) => ReactNode
+  /** popup：移动端也用锚定浮层，对齐官方会话菜单 */
+  variant?: 'auto' | 'popup'
 }) => {
   const [open, setOpen] = useState(false)
   const isMobile = useIsMobile()
+  const popup = variant === 'popup' || !isMobile
   const close = () => setOpen(false)
-  // 移动端使用底部操作表，不再需要锚定测量。
   const { anchorRef, floatingRef, position } = useAnchoredPosition<HTMLSpanElement, HTMLDivElement>(
-    open && !isMobile,
+    open && popup,
     { align: 'start', alignOffset: -5, offset: 4 }
   )
   useDismiss(open, [anchorRef, floatingRef], close)
@@ -59,7 +62,7 @@ export const Menu = ({
       <span ref={anchorRef} className={styles.anchor}>
         {children({ open, toggle: () => setOpen((value) => !value) })}
       </span>
-      {open && isMobile
+      {open && !popup
         ? createPortal(
             <div
               className={styles.sheetMask}
@@ -73,7 +76,7 @@ export const Menu = ({
             document.body
           )
         : null}
-      {open && !isMobile
+      {open && popup
         ? createPortal(
             <div
               ref={floatingRef}

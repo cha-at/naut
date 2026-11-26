@@ -6,14 +6,12 @@
   position: fixed;
   z-index: 900;
   box-sizing: border-box;
-  min-width: 124px;
+  min-width: 232px;
   padding: 4px;
-  border-radius: 12px;
-  background-color: var(--dsw-specific-menu);
-  box-shadow:
-    0 0 1px rgba(0, 0, 0, 0.2),
-    0 0 4px rgba(0, 0, 0, 0.02),
-    0 12px 32px rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  overflow: hidden;
+  background-color: var(--ds-menu);
+  box-shadow: var(--ds-shadow-menu);
 }
 
 .options {
@@ -24,17 +22,18 @@
 .option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
   width: 100%;
-  padding: 8px 10px;
+  min-height: 52px;
+  padding: 14px 16px;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   background: transparent;
   font: inherit;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 24px;
   text-align: left;
-  color: var(--dsw-alias-label-primary);
+  color: var(--ds-text);
   cursor: pointer;
   user-select: none;
   outline: none;
@@ -48,13 +47,24 @@
   }
 }
 
+/* 官方菜单项之间有一条极细的分隔线 */
+.option + .option {
+  border-top: 1px solid var(--ds-border-subtle);
+}
+
 .icon {
   display: flex;
-  font-size: 16px;
+  flex-shrink: 0;
+  font-size: 20px;
+  color: var(--ds-text);
 }
 
 .danger {
-  color: var(--dsw-alias-state-error-primary);
+  color: var(--ds-error);
+
+  .icon {
+    color: var(--ds-error);
+  }
 
   &:hover {
     background-color: var(--dsw-alias-interactive-bg-hover-danger);

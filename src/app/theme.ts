@@ -60,6 +60,20 @@ const syncTheme = () => {
   }
 }
 
+/** 官方用 Configuration.fontScale 全局缩放字号；Web 侧用 zoom 施加在外壳根节点上 */
+const applyUiScale = (scale: number) => {
+  document.documentElement.style.setProperty('--ds-ui-scale', String(scale))
+}
+
+export const setupUiScale = () => {
+  applyUiScale(useSettings.getState().fontScale)
+  useSettings.subscribe((state, previous) => {
+    if (state.fontScale !== previous.fontScale) {
+      applyUiScale(state.fontScale)
+    }
+  })
+}
+
 /** 首屏渲染前同步应用一次，之后随主题设置与系统深浅色变化更新 */
 export const setupTheme = () => {
   syncTheme()

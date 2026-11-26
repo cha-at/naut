@@ -87,10 +87,33 @@ export const toggleReadAloud = (
   if (reading === messageId) {
     return
   }
+  startPlayback(messageId, text, onError, false)
+}
+
+/**
+ * 自动朗读（顶栏喇叭开关）：可能不在点击手势里，先尝试恢复 AudioContext。
+ * 被浏览器自动播放策略拦下时静默失败，用户仍可手动点朗读。
+ */
+export const autoReadAloud = (messageId: string, text: string) => {
+  if (!text.trim() || useReadAloud.getState().messageId) {
+    return
+  }
+  startPlayback(messageId, text, () => {}, true)
+}
+
+const startPlayback = (
+  messageId: string,
+  text: string,
+  onError: (error: unknown) => void,
+  auto: boolean
+) => {
   const controller = new AbortController()
   const context = new AudioContext({ sampleRate: TTS_SAMPLE_RATE })
   current = { controller, context }
   useReadAloud.setState({ messageId, status: 'loading' })
+  if (auto) {
+    void context.resume().catch(() => {})
+  }
   // 音色在开始朗读时读取，设置中切换后下一次朗读生效
   const { apiKey, ttsVoice } = useSettings.getState()
 

@@ -2,6 +2,7 @@ import { closeTopModal, hasOpenModal } from '../components/base/Modal.js'
 import { useImageViewer } from '../components/files/imageViewerState.js'
 import { closeSearchPanel, useSearchPanel } from '../components/search/searchPanelState.js'
 import { closeMobileSider, useMobileSider } from '../components/sider/mobileSiderState.js'
+import { closeSettings, useSettingsDialog } from '../components/settings/settingsDialogState.js'
 import { stopReply, useChatStore } from '../services/chat/store.js'
 import { stopReadAloud } from '../services/speech/readAloud.js'
 import { isAndroid, isTauri } from './env.js'
@@ -78,6 +79,10 @@ export const installBackHandler = (): (() => void) => {
         }
         if (useSearchPanel.getState().entry) {
           closeSearchPanel()
+          return
+        }
+        if (useSettingsDialog.getState().open) {
+          closeSettings()
           return
         }
         if (useMobileSider.getState().open) {

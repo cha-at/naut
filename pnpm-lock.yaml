@@ -50,6 +50,9 @@ importers:
       katex:
         specifier: 0.16.22
         version: 0.16.22
+      lucide-react:
+        specifier: ^1.81.0
+        version: 1.81.0(@types/react@18.3.31)(react@18.3.1)
       mdast-util-find-and-replace:
         specifier: 3.0.2
         version: 3.0.2
@@ -1199,6 +1202,15 @@ packages:
   loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
+
+  lucide-react@1.81.0:
+    resolution: {integrity: sha512-U+CisvFQ84m+xUJAKKA4q+mykGB1LAmu196hOblQbuNYJgD43iHwpmfYuqcFYHXJu2oqRih5JoH3f5LxwsUegg==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   markdown-table@3.1.0:
     resolution: {integrity: sha512-xpeSCdM+B+6P3ncfgaB7FoDbtJ30xAe6Z18TGT7AgXJsHqCElCICZovQqdRMm7kHgpTyYv36EupqewoFFSB8vw==}
@@ -2405,6 +2417,12 @@ snapshots:
   loose-envify@1.4.0:
     dependencies:
       js-tokens: 3.0.0
+
+  lucide-react@1.81.0(@types/react@18.3.31)(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+    optionalDependencies:
+      '@types/react': 18.3.31
 
   markdown-table@3.1.0: {}
 

@@ -10,6 +10,7 @@ import type { Session } from '../../services/chat/types.js'
 import { closeSearchPanel } from '../search/searchPanelState.js'
 import { AssistantMessage } from './AssistantMessage.js'
 import { ScrollToBottomContext } from './scrollContext.js'
+import { resetScrollState, setScrollPosition } from './scrollState.js'
 import { UserMessage } from './UserMessage.js'
 import type { Message } from '../../services/chat/types.js'
 
@@ -125,6 +126,11 @@ export const MessageList = ({
     } else {
       el.scrollTop = scrollTopRef.current
     }
+    const publish = () => {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < STICKY_THRESHOLD
+      setScrollPosition(session.id, el.scrollTop < 8, atBottom)
+    }
+    publish()
     const onScroll = () => {
       const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < STICKY_THRESHOLD
       // 仅在用户向上滚动时停止跟随底部，布局或内容增高时保持跟随状态。
@@ -134,10 +140,14 @@ export const MessageList = ({
         stickyRef.current = false
       }
       scrollTopRef.current = el.scrollTop
+      publish()
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
-  }, [isMobile, scrollToBottom])
+  }, [isMobile, scrollToBottom, session.id])
+
+  // 离开会话时复位顶栏标题与「回到底部」按钮的滚动状态
+  useEffect(() => resetScrollState, [session.id])
 
   const lastIndex = messages.length - 1
   const uploadRetryId = getUploadRetryId(messages, streaming)

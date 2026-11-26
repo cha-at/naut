@@ -1,0 +1,108 @@
+/**
+ * 把官方 App 的令牌层（tokens.css）接到现有的 `--dsw-*` 别名上。
+ *
+ * 组件 CSS 全部消费 `--dsw-*`，所以换肤只需要这一层：以后要再调色，改 tokens.css，
+ * 不要再往组件里塞颜色。导入顺序：theme.css（字体、静态色阶）→ 本文件 → global.css。
+ */
+
+body {
+  --dsw-alias-bg-base: var(--ds-page);
+  --dsw-alias-bg-layer-2: var(--ds-page);
+  --dsw-alias-bg-layer-3: var(--ds-surface);
+  --dsw-alias-bg-skeleton: rgba(0, 0, 0, 0.04);
+  --dsw-alias-border-inverted: rgba(0, 0, 0, 0);
+  --dsw-alias-border-l1: var(--ds-border-subtle);
+  --dsw-alias-border-l2-darkmode-thin: var(--ds-border);
+  --dsw-alias-border-l2: var(--ds-border);
+  --dsw-alias-border-l3: var(--ds-border-strong);
+  --dsw-alias-brand-primary-invert: var(--ds-brand);
+  --dsw-alias-brand-primary: var(--ds-brand);
+  --dsw-alias-brand-text: var(--ds-brand);
+  --dsw-alias-button-contrast-fill: #3c3c3d;
+  --dsw-alias-button-elevated-fill: #ffffff;
+  --dsw-alias-button-ghost-active-border: var(--ds-chip-selected-border);
+  --dsw-alias-button-ghost-active-fill: var(--ds-chip-selected-bg);
+  --dsw-alias-button-ghost-active-hover: #d6e6ff;
+  --dsw-alias-button-primary-fill: var(--ds-brand);
+  --dsw-alias-button-primary-hover: var(--ds-brand-pressed);
+  --dsw-alias-interactive-bg-active: rgba(0, 0, 0, 0.08);
+  --dsw-alias-interactive-bg-hover-danger: rgba(236, 19, 19, 0.05);
+  --dsw-alias-interactive-bg-hover: rgba(0, 0, 0, 0.04);
+  --dsw-alias-interactive-bg-hover-accent: rgba(0, 0, 0, 0.08);
+  --dsw-alias-label-caption: var(--ds-text-tertiary);
+  --dsw-alias-label-dimmed: #d9dbe0;
+  --dsw-alias-label-primary-foreground: var(--ds-text-on-brand);
+  --dsw-alias-label-primary-inverted: #ffffff;
+  --dsw-alias-label-primary: var(--ds-text);
+  --dsw-alias-label-secondary: var(--ds-text-secondary);
+  --dsw-alias-label-tertiary: var(--ds-text-tertiary);
+  --dsw-alias-markdown-citation: #eef0f3;
+  --dsw-alias-markdown-code-block-banner: #fafafa;
+  --dsw-alias-markdown-code-block: #f7f8f9;
+  --dsw-alias-markdown-inline-code: #f0f1f3;
+  --dsw-alias-markdown-placeholder: #f7f8f9;
+  --dsw-alias-markdown-tag: #f2f3f5;
+  --dsw-alias-state-error-primary: var(--ds-error-strong);
+  --dsw-alias-state-error-secondary: var(--ds-error);
+  --dsw-alias-toast-bg: var(--ds-toast);
+  --dsw-alias-tooltip-bg: var(--ds-tooltip);
+  --dsw-specific-bubble: var(--ds-bubble-user);
+  --dsw-specific-input-major: var(--ds-surface-input);
+  --dsw-specific-login-input: var(--ds-surface);
+  --dsw-specific-menu: var(--ds-menu);
+  --dsw-specific-selector: var(--ds-surface-high);
+  --dsw-specific-sidebar-fill: var(--ds-sidebar);
+  --dsw-specific-sidebar-nav-item-active-accent: var(--ds-surface-high);
+  --dsw-specific-sidebar-nav-item-hover: var(--ds-surface);
+}
+
+body[data-ds-dark-theme] {
+  --dsw-alias-bg-base: var(--ds-page);
+  --dsw-alias-bg-layer-2: var(--ds-surface);
+  --dsw-alias-bg-layer-3: var(--ds-surface-high);
+  --dsw-alias-bg-skeleton: rgba(255, 255, 255, 0.08);
+  --dsw-alias-border-inverted: var(--ds-border-subtle);
+  --dsw-alias-border-l1: var(--ds-border-subtle);
+  --dsw-alias-border-l2-darkmode-thin: var(--ds-border-subtle);
+  --dsw-alias-border-l2: var(--ds-border);
+  --dsw-alias-border-l3: var(--ds-border-strong);
+  --dsw-alias-brand-primary-invert: var(--ds-text);
+  --dsw-alias-brand-primary: var(--ds-brand);
+  --dsw-alias-brand-text: var(--ds-brand);
+  --dsw-alias-button-contrast-fill: #f8f8f8;
+  --dsw-alias-button-elevated-fill: var(--ds-surface-high);
+  --dsw-alias-button-ghost-active-border: var(--ds-chip-selected-border);
+  --dsw-alias-button-ghost-active-fill: var(--ds-chip-selected-bg);
+  --dsw-alias-button-ghost-active-hover: #2f3d5c;
+  --dsw-alias-button-primary-fill: var(--ds-brand);
+  --dsw-alias-button-primary-hover: var(--ds-brand-pressed);
+  --dsw-alias-interactive-bg-active: rgba(255, 255, 255, 0.14);
+  --dsw-alias-interactive-bg-hover-danger: rgba(242, 90, 90, 0.15);
+  --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.08);
+  --dsw-alias-interactive-bg-hover-accent: rgba(255, 255, 255, 0.16);
+  --dsw-alias-label-caption: var(--ds-text-tertiary);
+  --dsw-alias-label-dimmed: #5a5c60;
+  --dsw-alias-label-primary-foreground: var(--ds-text-on-brand);
+  --dsw-alias-label-primary-inverted: #1a1a1a;
+  --dsw-alias-label-primary: var(--ds-text);
+  --dsw-alias-label-secondary: var(--ds-text-secondary);
+  --dsw-alias-label-tertiary: var(--ds-text-tertiary);
+  --dsw-alias-markdown-citation: #3c3c3d;
+  --dsw-alias-markdown-code-block-banner: #1b1b1c;
+  --dsw-alias-markdown-code-block: #171718;
+  --dsw-alias-markdown-inline-code: #262628;
+  --dsw-alias-markdown-placeholder: #262628;
+  --dsw-alias-markdown-tag: #2b2b2d;
+  --dsw-alias-state-error-primary: var(--ds-error);
+  --dsw-alias-state-error-secondary: var(--ds-error);
+  --dsw-alias-toast-bg: var(--ds-toast);
+  --dsw-alias-tooltip-bg: var(--ds-tooltip);
+  --dsw-specific-bubble: var(--ds-bubble-user);
+  --dsw-specific-input-major: var(--ds-surface-input);
+  --dsw-specific-login-input: var(--ds-surface);
+  --dsw-specific-menu: var(--ds-menu);
+  --dsw-specific-selector: var(--ds-surface-high);
+  --dsw-specific-sidebar-fill: var(--ds-sidebar);
+  --dsw-specific-sidebar-nav-item-active-accent: var(--ds-surface-high);
+  --dsw-specific-sidebar-nav-item-hover: var(--ds-surface);
+}
